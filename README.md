@@ -15,13 +15,14 @@ This repository serves as a centralized hub for various `.bat` files designed to
 
 Each script is located in its own dedicated folder and comes with a detailed `README.md` explaining its functionality, usage, and any specific notes.
 
-| Script Name       | Main Usage / Problem Solved                                | Download Link (ZIP)                                                                                                    |
+| Script Name | Main Usage / Problem Solved | Download Link (ZIP) |
 | :---------------- | :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-| **Anti Sleep** | Prevents your computer from going to sleep or locking automatically. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FAnti%20Sleep)                                                               |
-| **Copy to Startup** | Easily adds files or shortcuts to your Windows Startup folder for automatic execution at login. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FCopy%20to%20Startup)                                                          |
-| **Generate Hash** | Generates file hashes (e.g., MD5, SHA256) for integrity verification and quick file comparison. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FGenerate%20Hash)                                                            |
-| **Ping Check** | Pings a list of IP addresses from a text file and generates a report indicating which IPs are reachable or unreachable. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FPing%20Check)                                                               |
-| **Shutdown Timeout** | Schedules a timed shutdown for your system based on inactivity, useful for automated power management and energy saving. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FShutdown%20Timeout)                                                         |
+| **Anti Sleep** | Prevents your computer from going to sleep or locking automatically. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FAnti%20Sleep) |
+| **Copy to Startup** | Easily adds files or shortcuts to your Windows Startup folder for automatic execution at login. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FCopy%20to%20Startup) |
+| **Generate Hash** | Generates file hashes (e.g., MD5, SHA256) for integrity verification and quick file comparison. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FGenerate%20Hash) |
+| **Ping Check** | Pings a list of IP addresses from a text file and generates a report indicating which IPs are reachable or unreachable. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FPing%20Check) |
+| **Shutdown Timeout** | Schedules a timed shutdown for your system based on inactivity, useful for automated power management and energy saving. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FShutdown%20Timeout) |
+| **(Add new scripts here)** | (Brief description of its primary function and what problem it solves) | (Link to new script folder) |
 
 ### How to Use
 
@@ -29,8 +30,9 @@ You have a few options to get started with BATman scripts:
 
 1.  **Download Individual Scripts (Recommended for quick use):**
     * Find the script you need in the "Available Scripts" table above.
-    * Click the "Download" link in the corresponding row. This will download the entire script's folder as a `.zip` file directly to your computer.
-    * Extract the `.zip` file.
+    * Click the "Download" link in the corresponding row. This will take you to the DownGit website in your current browser tab.
+    * On the DownGit page, **click the 'Download' button** (which typically appears at the top) to initiate the `.zip` file download for that specific script's folder.
+    * Extract the downloaded `.zip` file.
     * Navigate into the extracted folder.
 
 2.  **Clone the Entire Repository:**
