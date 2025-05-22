@@ -15,25 +15,33 @@ This repository serves as a centralized hub for various `.bat` files designed to
 
 Each script is located in its own dedicated folder and comes with a detailed `README.md` explaining its functionality, usage, and any specific notes.
 
-| Script Name       | Main Usage / Problem Solved                               |
-| :---------------- | :-------------------------------------------------------- |
-| **Anti Sleep** | Prevents your computer from going to sleep or locking automatically. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https://github.com/xvacorx/BATman/tree/main/Anti%20Sleep)
-| **Copy to Startup** | Easily adds files or shortcuts to your Windows Startup folder for automatic execution at login. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https://github.com/xvacorx/BATman/tree/main/Copy%20to%20Startup)
-| **Generate Hash** | Generates file hashes (e.g., MD5, SHA256) for integrity verification and quick file comparison. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https://github.com/xvacorx/BATman/tree/main/Generate%20Hash)
-| **Ping Check** | Pings a list of IP addresses from a text file and generates a report indicating which IPs are reachable or unreachable. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https://github.com/xvacorx/BATman/tree/main/Ping%20Check)
-| **Shutdown Timeout** | Schedules a timed shutdown for your system based on inactivity, useful for automated power management and energy saving. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https://github.com/xvacorx/BATman/tree/main/Shutdown%20Timeout)
+| Script Name       | Main Usage / Problem Solved                                | Download Link (ZIP)                                                                                                    |
+| :---------------- | :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| **Anti Sleep** | Prevents your computer from going to sleep or locking automatically. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FAnti%20Sleep)                                                               |
+| **Copy to Startup** | Easily adds files or shortcuts to your Windows Startup folder for automatic execution at login. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FCopy%20to%20Startup)                                                          |
+| **Generate Hash** | Generates file hashes (e.g., MD5, SHA256) for integrity verification and quick file comparison. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FGenerate%20Hash)                                                            |
+| **Ping Check** | Pings a list of IP addresses from a text file and generates a report indicating which IPs are reachable or unreachable. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FPing%20Check)                                                               |
+| **Shutdown Timeout** | Schedules a timed shutdown for your system based on inactivity, useful for automated power management and energy saving. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FShutdown%20Timeout)                                                         |
 
 ### How to Use
 
-1.  **Clone the Repository:**
-    You can download the entire repository as a ZIP file directly from GitHub, or clone it using Git:
+You have a few options to get started with BATman scripts:
+
+1.  **Download Individual Scripts (Recommended for quick use):**
+    * Find the script you need in the "Available Scripts" table above.
+    * Click the "Download" link in the corresponding row. This will download the entire script's folder as a `.zip` file directly to your computer.
+    * Extract the `.zip` file.
+    * Navigate into the extracted folder.
+
+2.  **Clone the Entire Repository:**
+    If you prefer to have the full collection and keep it updated with Git:
     ```bash
     git clone [https://github.com/xvacorx/BATman.git](https://github.com/xvacorx/BATman.git)
     ```
-2.  **Navigate to the Script:**
-    Browse to the folder of the `.bat` file you wish to use (e.g., `BATman/Anti Sleep/`).
+    Alternatively, you can download the entire repository as a ZIP file directly from GitHub's main page.
+
 3.  **Run the Script:**
-    Simply double-click the `.bat` file. Please note that some scripts may require administrative privileges (right-click on the `.bat` file and select "Run as administrator") depending on their function.
+    Once you have the script's folder, simply double-click the `.bat` file inside it. Please note that some scripts may require administrative privileges (right-click on the `.bat` file and select "Run as administrator") depending on their function.
 
 **Important Note:** Each script's dedicated folder contains a `README.md` file with detailed instructions and explanations specific to that particular `.bat` script.
 
