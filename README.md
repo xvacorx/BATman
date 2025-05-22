@@ -73,7 +73,7 @@ Please ensure any new script contributions include their own `README.md` file cl
 
 ### License
 
-This project is open-source and free to use. (Consider adding a specific license file like MIT for clarity, which can be done directly on GitHub).
+This project is open-source and free to use.
 
 ---
 
