@@ -3,6 +3,7 @@ CREATED BY: xvacorx
 GitHub: https://github.com/xvacorx
 
 Itch.io: https://xvacorx.itch.io/
+
 -----------------------------------------
 
 This script is meant to shut down a computer after 1 hour without activity
