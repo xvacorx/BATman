@@ -71,14 +71,14 @@ You have a few options to get started with BATman scripts:
 
 
 
-3.  **Clone the Entire Repository:**
+3.  **Clone the Entire Repository:**
+    If you want the full collection and prefer to keep it updated with Git:
 
-    If you prefer to have the full collection and keep it updated with Git:
+    ```bash
+    git clone [https://github.com/xvacorx/BATman.git](https://github.com/xvacorx/BATman.git)
+    ```
 
-    git clone [https://github.com/xvacorx/BATman.git](https://github.com/xvacorx/BATman.git)
-
-
-    Alternatively, you can download the entire repository as a ZIP file directly from GitHub's main page.
+    Alternatively, you can download the entire repository as a **ZIP file** directly from the main GitHub page by clicking the green "Code" button and selecting "Download ZIP."
 
 
 
