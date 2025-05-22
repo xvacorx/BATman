@@ -1,7 +1,9 @@
 CREATED BY: xvacorx
 
 GitHub: https://github.com/xvacorx
+
 Itch.io: https://xvacorx.itch.io/
+
 -----------------------------------------
 
 These .bat files were made to prevent windows sleep and log out while inactive.

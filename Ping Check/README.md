@@ -1,7 +1,9 @@
 CREATED BY: xvacorx
 
 GitHub: https://github.com/xvacorx
+
 Itch.io: https://xvacorx.itch.io/
+
 -----------------------------------------
 
 This tool is made to check if a list of devices respond to the network.
