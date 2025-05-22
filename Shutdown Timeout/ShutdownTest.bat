@@ -1,0 +1,3 @@
+@echo off
+echo Probando apagado del sistema...
+shutdown /s /t 10 /c "Prueba de apagado: Si ves esto, el comando shutdown funciona con tus permisos."

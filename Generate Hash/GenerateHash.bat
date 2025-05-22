@@ -1,0 +1,1 @@
+MDMDiagnosticsTool -area autopilot -cab C:\hash.cab

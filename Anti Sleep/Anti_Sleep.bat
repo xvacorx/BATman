@@ -1,0 +1,2 @@
+@echo off
+powershell -WindowStyle Hidden -command "while ($true) { Add-Type -AssemblyName System.Windows.Forms; $pos = [System.Windows.Forms.Cursor]::Position; $x = $pos.X + 1; $y = $pos.Y; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($x,$y); Start-Sleep -Seconds 1; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($pos.X,$pos.Y); Start-Sleep -Seconds 60 }"
