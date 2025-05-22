@@ -75,11 +75,8 @@ You have a few options to get started with BATman scripts:
 
     If you prefer to have the full collection and keep it updated with Git:
 
-    ```bash
-
     git clone [https://github.com/xvacorx/BATman.git](https://github.com/xvacorx/BATman.git)
 
-    ```
 
     Alternatively, you can download the entire repository as a ZIP file directly from GitHub's main page.
 
