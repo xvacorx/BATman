@@ -1,49 +1,41 @@
 @echo off
 setlocal enabledelayedexpansion
 
-rem Archivo con la lista de IPs
 set "file=ips.txt"
 
-rem Verificar si el archivo existe
 if not exist "%file%" (
-    echo No se encontró el archivo %file%
+    echo %file% not found.
     pause
     exit /b
 )
 
-echo Verificando conexiones...
-echo -------------------------- > resultado.txt
+echo Checking connections...
+echo -------------------------- > result.txt
 
-rem Procesar cada IP/hostname del archivo
 for /f "usebackq tokens=*" %%i in ("%file%") do (
-    rem Reiniciar las variables en cada iteración
-    set "respuesta="
+    set "response_ip="
     set "mac="
     set "hostname="
 
-    rem Ejecutar ping y extraer la IP de respuesta usando "Reply from"
     for /f "tokens=3 delims=: " %%a in ('ping -n 1 %%i ^| findstr /i "Reply from"') do (
-        set "respuesta=%%a"
+        set "response_ip=%%a"
     )
 
-    rem Si se obtuvo respuesta, se procede a buscar el hostname y la MAC
-    if defined respuesta (
-        rem Obtener el nombre de host usando nslookup
-        for /f "tokens=2 delims=: " %%H in ('nslookup !respuesta! ^| find "Name:"') do (
+    if defined response_ip (
+        for /f "tokens=2 delims=: " %%H in ('nslookup !response_ip! ^| find "Name:"') do (
             set "hostname=%%H"
         )
-        rem Obtener la dirección MAC a partir del ARP cache
-        for /f "tokens=1,2" %%M in ('arp -a !respuesta! ^| findstr /i "!respuesta!"') do (
+        for /f "tokens=1,2" %%M in ('arp -a !response_ip! ^| findstr /i "!response_ip!"') do (
             set "mac=%%M"
         )
-        echo %%i [OK] - Respondió desde !respuesta! - MAC: !mac! - Host: !hostname!
-        echo %%i [OK] - Respondió desde !respuesta! - MAC: !mac! - Host: !hostname! >> resultado.txt
+        echo %%i [OK] - Replied from !response_ip! - MAC: !mac! - Host: !hostname!
+        echo %%i [OK] - Replied from !response_ip! - MAC: !mac! - Host: !hostname! >> result.txt
     ) else (
-        echo %%i [FALLÓ]
-        echo %%i [FALLÓ] >> resultado.txt
+        echo %%i [FAILED]
+        echo %%i [FAILED] >> result.txt
     )
 )
 
 echo --------------------------
-echo Verificación finalizada. Revisa el archivo resultado.txt.
+echo Check completed. Review result.txt.
 pause

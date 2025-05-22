@@ -1,39 +1,33 @@
 @echo off
 setlocal enabledelayedexpansion
 
-rem Archivo con la lista de IPs
 set "file=ips.txt"
 
-rem Verificar si el archivo existe
 if not exist "%file%" (
-    echo No se encontró el archivo %file%
+    echo %file% not found.
     pause
     exit /b
 )
 
-echo Verificando conexiones...
-echo -------------------------- > resultado.txt
+echo Checking connections...
+echo -------------------------- > result.txt
 
-rem Procesar cada IP/hostname del archivo
 for /f "usebackq tokens=*" %%i in ("%file%") do (
-    rem Reiniciar la variable de respuesta en cada iteración
-    set "respuesta="
+    set "response_ip="
 
-    rem Ejecutar ping y extraer la IP de respuesta usando "Reply from"
     for /f "tokens=3 delims=: " %%a in ('ping -n 1 %%i ^| findstr /i "Reply from"') do (
-        set "respuesta=%%a"
+        set "response_ip=%%a"
     )
 
-    rem Si se obtuvo respuesta, la variable 'respuesta' estará definida
-    if defined respuesta (
-        echo %%i [OK] - Respondió desde !respuesta!
-        echo %%i [OK] - Respondió desde !respuesta! >> resultado.txt
+    if defined response_ip (
+        echo %%i [OK] - Replied from !response_ip!
+        echo %%i [OK] - Replied from !response_ip! >> result.txt
     ) else (
-        echo %%i [FALLÓ]
-        echo %%i [FALLÓ] >> resultado.txt
+        echo %%i [FAILED]
+        echo %%i [FAILED] >> result.txt
     )
 )
 
 echo --------------------------
-echo Verificación finalizada. Revisa el archivo resultado.txt.
+echo Check completed. Review result.txt.
 pause
