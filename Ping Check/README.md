@@ -1,21 +1,38 @@
-CREATED BY: xvacorx
+# Ping Check
 
-GitHub: https://github.com/xvacorx
+A network utility to efficiently check the reachability of a list of IP addresses or hostnames and generate a detailed report.
 
-Itch.io: https://xvacorx.itch.io/
+## How it Works
 
------------------------------------------
+This tool pings a list of devices specified in a text file (`ips.txt`) and then generates a `Results.txt` file summarizing which IPs are reachable and which are not. You have two options for the level of detail in the report:
 
-This tool is made to check if a list of devices respond to the network.
+* **`Ping.bat`**: Provides a concise report, simply indicating whether each IP responded successfully or not.
+* **`Detailed_Ping.bat`**: Attempts to gather additional information about each device, such as MAC address and hostname, for a more comprehensive report.
 
-ips.txt needs to be edited and filled with the list of ips (or hostnames) to be pinged (one per line).
+## Usage
 
-Once ips.txt is done, run Ping.bat or Detailed_Ping.bat. This will start the process for each ip.
+1.  **Prepare `ips.txt`**:
+    * Open `ips.txt` (located in the same folder as the scripts).
+    * Enter each IP address or hostname you want to ping on a new line.
+        ```
+        192.168.1.1
+        google.com
+        10.0.0.50
+        ```
+    * Save the `ips.txt` file.
 
-When the process finishes a Results.txt file will appear in the folder.
+2.  **Run the script**:
+    * Double-click either `Ping.bat` for a basic check or `Detailed_Ping.bat` for more information.
 
-Differences:
+3.  **View results**:
+    * Once the script finishes, a `Results.txt` file will be created in the same folder, containing the ping report.
 
-Ping.bat: Only shows if the ping was ok or not and the IP in return
+---
 
-Detailed_Ping.bat: Tries to recover additional information about the device than Ping.bat. For Example MAC Address and Host Name.
+### Created by
+
+**xvacorx**
+
+* **GitHub**: [https://github.com/xvacorx](https://github.com/xvacorx)
+* **Itch.io**: [https://xvacorx.itch.io/](https://xvacorx.io/)
+* **LinkedIn**: [https://www.linkedin.com/in/victor-g-sanchez/](https://www.linkedin.com/in/victor-g-sanchez/)
