@@ -22,7 +22,6 @@ Each script is located in its own dedicated folder and comes with a detailed `RE
 | **Generate Hash** | Generates file hashes (e.g., MD5, SHA256) for integrity verification and quick file comparison. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FGenerate%20Hash) |
 | **Ping Check** | Pings a list of IP addresses from a text file and generates a report indicating which IPs are reachable or unreachable. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FPing%20Check) |
 | **Shutdown Timeout** | Schedules a timed shutdown for your system based on inactivity, useful for automated power management and energy saving. | [Download](https://minhaskamal.github.io/DownGit/#/home?url=https:%2F%2Fgithub.com%2Fxvacorx%2FBATman%2Ftree%2Fmain%2FShutdown%20Timeout) |
-| **(Add new scripts here)** | (Brief description of its primary function and what problem it solves) | (Link to new script folder) |
 
 ### How to Use
 
