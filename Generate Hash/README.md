@@ -6,10 +6,15 @@ This script generates a comprehensive hash of your computer's current state and 
 
 The script collects system information and calculates a hash, providing a snapshot of your system's configuration. This can be useful for baseline comparisons, troubleshooting, or general system monitoring.
 
+Okay, I'll provide the usage instructions in Markdown format, incorporating all the requested points.
+
+---
+
 ## Usage
 
-1.  Double-click `Generate_Hash.bat`.
-2.  The script will run, and upon completion, a `.cab` file containing the generated hash will be created in your `C:\` drive.
+1.  Double-click **`GenerateHash.bat`**.
+2.  A **User Account Control (UAC) prompt** will appear, asking for administrator access (this is essential for collecting all the device information).
+3.  The script will run. Upon completion, a folder named **`MDMLogs`** will be created (or used if it already exists) in the same drive where the script is located. Inside this folder, a `.cab` file named after the device's **serial number** (e.g., `SERIALNUMBER.cab`) will be generated.
 
 ---
 
