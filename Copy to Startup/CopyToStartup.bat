@@ -11,7 +11,7 @@ echo.
 for %%f in ("%current_folder%*") do (
     set "filename=%%~nxf"
     if /i not "%%~nxf"=="%batch_file_name%" (
-        if /i not "%%~nxf"=="README.txt" (
+        if /i not "%%~nxf"=="README.md" (
             echo Copying: %%~nxf
             copy "%%f" "%startup_folder%" >nul
         )
