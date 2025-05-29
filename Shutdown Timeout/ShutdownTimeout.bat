@@ -31,21 +31,24 @@ if !errorlevel! equ 0 (
     set "ALL_TESTS_OK=false"
 )
 
-where powershell.exe >nul 2>&1
+:: Test 2: powershell.exe availability by executing a simple command
+powershell.exe -NoProfile -Command "Exit 0" >nul 2>&1
 if !errorlevel! equ 0 (
     echo [%%date%% %%time%%] Test 2: powershell.exe found OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
 
-where msg >nul 2>&1
+:: Test 3: msg command availability by checking its help output
+msg /? >nul 2>&1
 if !errorlevel! equ 0 (
     echo [%%date%% %%time%%] Test 3: msg command found OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
 
-where shutdown >nul 2>&1
+:: Test 4: shutdown command availability by checking its help output
+shutdown /? >nul 2>&1
 if !errorlevel! equ 0 (
     echo [%%date%% %%time%%] Test 4: shutdown command found OK. >> "%LOG_FILE%"
 ) else (
@@ -58,9 +61,9 @@ if "%ALL_TESTS_OK%"=="true" (
 ) else (
     echo STATUS: FAILED > "%TEST_STATUS_FILE%"
     echo.
-    echo ERROR: One or more critical components are missing or inaccessible.
-    echo Please check the log file "%LOG_FILE%" for more details.
-    echo The script will now close.
+    echo ERROR: Uno o más componentes críticos no están o son inaccesibles.
+    echo Por favor, revisa el archivo de registro "%LOG_FILE%" para más detalles.
+    echo El script se cerrará ahora.
     echo.
     exit /b 1
 )
