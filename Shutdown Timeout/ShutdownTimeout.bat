@@ -31,21 +31,21 @@ if !errorlevel! equ 0 (
     set "ALL_TESTS_OK=false"
 )
 
-where powershell.exe >nul 2>&1
+powershell.exe -NoProfile -Command "Exit 0" >nul 2>&1
 if !errorlevel! equ 0 (
     echo [%%date%% %%time%%] Test 2: powershell.exe found OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
 
-where msg >nul 2>&1
+msg /? >nul 2>&1
 if !errorlevel! equ 0 (
     echo [%%date%% %%time%%] Test 3: msg command found OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
 
-where shutdown >nul 2>&1
+shutdown /? >nul 2>&1
 if !errorlevel! equ 0 (
     echo [%%date%% %%time%%] Test 4: shutdown command found OK. >> "%LOG_FILE%"
 ) else (
@@ -70,30 +70,7 @@ echo 0 > "%LAST_ACTIVITY_FILE%"
 del "%WARNING_SENT_FILE%" 2>nul
 
 :loop
-powershell.exe -NoProfile -Command "& { ^
-    Add-Type -TypeDefinition ' ^
-      using System; ^
-      using System.Runtime.InteropServices; ^
-      public class UserActivity { ^
-        [StructLayout(LayoutKind.Sequential)] ^
-        struct LASTINPUTINFO { ^
-          public uint cbSize; ^
-          public uint dwTime; ^
-        } ^
-        [DllImport(\"user32.dll\")] ^
-        public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii); ^
-        public static long GetIdleTime() { ^
-          LASTINPUTINFO lastInputInfo = new LASTINPUTINFO(); ^
-          lastInputInfo.cbSize = (uint)Marshal.SizeOf(lastInputInfo); ^
-          GetLastInputInfo(ref lastInputInfo); ^
-          return Environment.TickCount - lastInputInfo.dwTime; ^
-        } ^
-      } ^
-    '; ^
-    $idleMs = [UserActivity]::GetIdleTime(); ^
-    $idleSec = [int]($idleMs / 1000); ^
-    Write-Output $idleSec; ^
-}" > "%LAST_ACTIVITY_FILE%"
+powershell.exe -NoProfile -Command "& { Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class UserActivity{[StructLayout(LayoutKind.Sequential)]struct LASTINPUTINFO{public uint cbSize;public uint dwTime;}[DllImport(\"user32.dll\")]public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);public static long GetIdleTime(){LASTINPUTINFO lastInputInfo = new LASTINPUTINFO();lastInputInfo.cbSize = (uint)Marshal.SizeOf(lastInputInfo);GetLastInputInfo(ref lastInputInfo);return Environment.TickCount - lastInputInfo.dwTime;}}'; $idleMs = [UserActivity]::GetIdleTime(); $idleSec = [int]($idleMs / 1000); Write-Output $idleSec; }" > "%LAST_ACTIVITY_FILE%"
 
 set /p INACTIVITY_SECONDS=<"%LAST_ACTIVITY_FILE%"
 
