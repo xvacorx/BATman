@@ -9,7 +9,7 @@ This repository contains a set of batch scripts designed to manage your Windows 
 ### `ShutdownTimeout.bat`
 This is the core script for monitoring user inactivity and initiating a shutdown.
 
-### `WarningShutdownLoop.bat`
+### `ShutdownTimeoutWarning.bat`
 A new script that provides recurring shutdown warnings if a window remains open.
 
 ### `ClearLogs.bat`
@@ -37,7 +37,7 @@ This script is ideal for managing energy consumption, ensuring systems are turne
 
 ---
 
-## How `WarningShutdownLoop.bat` Works
+## How `ShutdownTimeoutWarning.bat` Works
 
 This script provides a recurring on-screen warning that triggers a system shutdown if unaddressed. It's designed to operate without administrator privileges, making it suitable for standard user accounts.
 
@@ -65,14 +65,14 @@ This script provides a recurring on-screen warning that triggers a system shutdo
 5.  **Monitoring Log**: You can review the activity and status of the script at any time by checking the log file: `%TEMP%\shutdown_log.txt`.
 6.  **Configuration**: You can adjust the inactivity thresholds (`CHECK_INTERVAL`, `WARNING_THRESHOLD`, `SHUTDOWN_THRESHOLD`) by editing the `SET` variables at the beginning of the `ShutdownTimeout.bat` file.
 
-### Setting Up `WarningShutdownLoop.bat`
+### Setting Up `ShutdownTimeoutWarning.bat`
 
-1.  **Save the script**: Save the provided code for `WarningShutdownLoop.bat` as a `.bat` file (e.g., `warning_shutdown_loop.bat`).
+1.  **Save the script**: Save the provided code for `ShutdownTimeoutWarning.bat` as a `.bat` file (e.g., `warning_shutdown_loop.bat`).
 2.  **Run at Startup**: To have the script run automatically each time you log in:
     * Create a **shortcut** to the `warning_shutdown_loop.bat` file.
     * Press `Windows + R`, type `shell:startup`, and press Enter.
     * Move or copy the created shortcut into this "Startup" folder.
-3.  **Configuration**: You can adjust the timing for the warning (`DELAY_BEFORE_WARNING_SECONDS`) and the duration the warning stays on screen before shutdown attempt (`WARNING_DURATION_SECONDS`) by editing the `SET` variables at the beginning of the `WarningShutdownLoop.bat` file.
+3.  **Configuration**: You can adjust the timing for the warning (`DELAY_BEFORE_WARNING_SECONDS`) and the duration the warning stays on screen before shutdown attempt (`WARNING_DURATION_SECONDS`) by editing the `SET` variables at the beginning of the `ShutdownTimeoutWarning.bat` file.
 
 ### Using Utility Scripts
 
