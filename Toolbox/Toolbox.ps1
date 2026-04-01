@@ -1,15 +1,21 @@
+# =========================================================
+# TOOLBOX TECNICO PRO - By Viktor
+# Repositorio: https://github.com/xvacorx/BATman
+# =========================================================
+
 # --- AUTO-ELEVACION A ADMINISTRADOR ---
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "[-] Sin permisos de administrador. Solicitando acceso..." -ForegroundColor Yellow
+    # Esta linea relanza el comando IRM directamente desde tu repo con privilegios
     $arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)`""
     Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments
     exit
 }
-# --- FIN DE ELEVACION ---
 
-# --- INICIO DEL SCRIPT POWERSHELL ---
+# --- CONFIGURACION DE CONSOLA ---
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$Host.UI.RawUI.WindowTitle = "Toolbox Tecnico Pro - By Viktor [ADMIN]"
 
 function Show-Header {
     Clear-Host
@@ -28,8 +34,8 @@ function Pause-Menu {
     Read-Host
 }
 
+# --- DEFINICION DE ACCIONES ---
 $actions = @{
-    # SISTEMA
     "1" = { 
         Show-Header
         Write-Host "[*] Reparacion Profunda (DISM + SFC)..." -ForegroundColor Cyan
@@ -55,8 +61,6 @@ $actions = @{
         Write-Host "[*] Analizando ultimos 5 errores criticos (BSOD)..." -ForegroundColor Red
         Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List
     }
-
-    # RED
     "4" = {
         Show-Header
         Write-Host "[*] Reseteando Stack de Red (Winsock/IP/DNS)..." -ForegroundColor Cyan
@@ -72,8 +76,6 @@ $actions = @{
             Write-Host "Red: $profile -> " -NoNewline -ForegroundColor Green; Write-Host $pass -ForegroundColor Yellow
         }
     }
-
-    # DISCO Y LIMPIEZA
     "6" = {
         Show-Header
         Write-Host "[*] Limpiando Temporales, Cache y Prefetch..." -ForegroundColor Cyan
@@ -86,8 +88,6 @@ $actions = @{
         Write-Host "[*] Estado Salud del Disco (SMART)..." -ForegroundColor Cyan
         wmic diskdrive get model,status
     }
-
-    # SOFTWARE Y GESTION
     "8" = {
         Show-Header
         Write-Host "[*] Instalando Kit Basico (Chrome, AnyDesk, VLC, 7zip)..." -ForegroundColor Cyan
@@ -110,16 +110,15 @@ $actions = @{
         Write-Host "[*] Forzando Actualizacion de Directivas (GPUpdate)..." -ForegroundColor Cyan
         gpupdate /force
     }
-
-    # AUTO
     "12" = {
         Show-Header
         Write-Host "[!] INICIANDO MANTENIMIENTO AUTOMATICO..." -ForegroundColor Red
         & $actions["6"]; & $actions["1"]; & $actions["4"]
-        Write-Host "`n[OK] Tareas automáticas finalizadas." -ForegroundColor Green
+        Write-Host "`n[OK] Tareas automaticas finalizadas." -ForegroundColor Green
     }
 }
 
+# --- BUCLE PRINCIPAL ---
 do {
     Show-Header
     Write-Host " [SISTEMA]" -ForegroundColor Yellow
