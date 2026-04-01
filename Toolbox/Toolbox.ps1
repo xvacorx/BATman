@@ -1,34 +1,47 @@
 # =========================================================
 # TOOLBOX TECNICO PRO - By Viktor
 # Repositorio: https://github.com/xvacorx/BATman
+# TinyURL: https://tinyurl.com/VikToolBox
 # =========================================================
 
 # --- 1. AUTO-ELEVACION A ADMINISTRADOR ---
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "[-] Sin permisos de administrador. Solicitando acceso..." -ForegroundColor Yellow
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)`""
-    Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments
+    # Usamos tu nuevo TinyURL para la re-ejecucion
+    Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm tinyurl.com/VikToolBox)`""
     exit
 }
 
-# --- 2. CONFIGURACION VISUAL (FONDO NEGRO Y CODIFICACION) ---
+# --- 2. CONFIGURACION VISUAL Y DE VENTANA ---
+if ($host.Name -eq "ConsoleHost") {
+    $Size = $host.UI.RawUI.WindowSize
+    $Size.Width = 85
+    $Size.Height = 32
+    $host.UI.RawUI.WindowSize = $Size
+    $host.UI.RawUI.BufferSize = $Size
+}
+
+# Forzar colores de fondo y texto
 $host.ui.RawUI.BackgroundColor = "Black"
 $host.ui.RawUI.ForegroundColor = "White"
-Clear-Host
+Clear-Host 
+
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "Toolbox Tecnico Pro - By Viktor [ADMIN]"
 
 function Show-Header {
     Clear-Host
+    Write-Host "`n"
     Write-Host "  _______ ____   ____  _      ____   ______  __ " -ForegroundColor Cyan
     Write-Host " |__   __/ __ \ / __ \| |    |  _ \ / __ \ \/ / " -ForegroundColor Cyan
     Write-Host "    | | | |  | | |  | | |    | |_) | |  | \  /  " -ForegroundColor Cyan
     Write-Host "    | | | |  | | |  | | |    |  _ <| |  | /  \  " -ForegroundColor Cyan
     Write-Host "    |_|  \____/ \____/|______|____/ \____/_/\_\ " -ForegroundColor Cyan
-    Write-Host "  =============================================" -ForegroundColor Gray
-    Write-Host "         TOOLBOX TECNICO PRO - By Viktor       " -ForegroundColor White -BackgroundColor Blue
-    Write-Host "  =============================================" -ForegroundColor Gray
+    Write-Host "  =======================================================" -ForegroundColor Gray
+    Write-Host "              TOOLBOX TECNICO PRO - By Viktor            " -ForegroundColor White -BackgroundColor Blue
+    Write-Host "  =======================================================" -ForegroundColor Gray
+    Write-Host "`n"
 }
 
 function Pause-Menu {
@@ -135,7 +148,7 @@ do {
     Write-Host "`n [HERRAMIENTAS PRO]" -ForegroundColor Yellow
     Write-Host "  8. Instalar Kit Soft Basico      9. Ver Apps de Inicio"
     Write-Host " 10. Reparar Microsoft Store      11. Forzar GPUpdate"
-    Write-Host " 12. MODO AUTOMATICO (Limpieza + Reparacion + Red)"
+    Write-Host "`n 12. MODO AUTOMATICO (Limpieza + Reparacion + Red)" -ForegroundColor Green
     Write-Host "---------------------------------------------------------" -ForegroundColor Gray
     Write-Host " Q. Salir"
     
