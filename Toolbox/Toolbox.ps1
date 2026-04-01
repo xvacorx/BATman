@@ -3,16 +3,19 @@
 # Repositorio: https://github.com/xvacorx/BATman
 # =========================================================
 
-# --- AUTO-ELEVACION A ADMINISTRADOR ---
+# --- 1. AUTO-ELEVACION A ADMINISTRADOR ---
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "[-] Sin permisos de administrador. Solicitando acceso..." -ForegroundColor Yellow
-    # Esta linea es la clave: relanza PowerShell pidiendo permiso y vuelve a ejecutar el IRM
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)`""
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)`""
+    Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments
     exit
 }
-# --------------------------------------
-# --- CONFIGURACION DE CONSOLA ---
+
+# --- 2. CONFIGURACION VISUAL (FONDO NEGRO Y CODIFICACION) ---
+$host.ui.RawUI.BackgroundColor = "Black"
+$host.ui.RawUI.ForegroundColor = "White"
+Clear-Host
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "Toolbox Tecnico Pro - By Viktor [ADMIN]"
 
@@ -33,7 +36,7 @@ function Pause-Menu {
     Read-Host
 }
 
-# --- DEFINICION DE ACCIONES ---
+# --- 3. DEFINICION DE ACCIONES ---
 $actions = @{
     "1" = { 
         Show-Header
@@ -48,12 +51,14 @@ $actions = @{
         $cpu = (Get-WmiObject Win32_Processor).Name
         $ram = [Math]::Round((Get-WmiObject Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB)
         $os = (Get-WmiObject Win32_OperatingSystem).Caption
+        Write-Host "-------------------------------------------"
         Write-Host "OS:     $os" -ForegroundColor Yellow
         Write-Host "CPU:    $cpu" -ForegroundColor Yellow
         Write-Host "RAM:    $ram GB" -ForegroundColor Yellow
         Write-Host "Serial: $serial" -ForegroundColor Yellow
         $key = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
         Write-Host "Clave BIOS (OEM): " -NoNewline; if($key){Write-Host $key -ForegroundColor Green}else{Write-Host "No encontrada" -ForegroundColor Red}
+        Write-Host "-------------------------------------------"
     }
     "3" = {
         Show-Header
@@ -117,7 +122,7 @@ $actions = @{
     }
 }
 
-# --- BUCLE PRINCIPAL ---
+# --- 4. BUCLE PRINCIPAL DEL MENU ---
 do {
     Show-Header
     Write-Host " [SISTEMA]" -ForegroundColor Yellow
