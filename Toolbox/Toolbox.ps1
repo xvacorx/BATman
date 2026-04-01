@@ -7,12 +7,11 @@
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "[-] Sin permisos de administrador. Solicitando acceso..." -ForegroundColor Yellow
-    # Esta linea relanza el comando IRM directamente desde tu repo con privilegios
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)`""
-    Start-Process powershell.exe -Verb RunAs -ArgumentList $arguments
+    # Esta linea es la clave: relanza PowerShell pidiendo permiso y vuelve a ejecutar el IRM
+    Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)`""
     exit
 }
-
+# --------------------------------------
 # --- CONFIGURACION DE CONSOLA ---
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "Toolbox Tecnico Pro - By Viktor [ADMIN]"
