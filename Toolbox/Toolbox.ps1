@@ -90,7 +90,7 @@ $actions = @{
         Start-Service -Name Spooler -ErrorAction SilentlyContinue
         Write-Centered "Cola de impresion vaciada." "Green"
     }
-    "11"= { Show-Header; Write-Centered "[*] Instalando Apps Basicas..." "Cyan"; $apps = @("Google.Chrome", "AnyDesk.AnyDesk", "VideoLAN.VLC", "7zip.7zip"); foreach ($a in $apps) { Write-Centered "Instalando $a..." "Gray"; winget install --id $a -e --silent --accept-source-agreements } }
+    "11"= { Show-Header; Write-Centered "[*] Instalando Apps Basicas..." "Cyan"; $apps = @("Google.Chrome", "AnyDesk.AnyDesk", "7zip.7zip"); foreach ($a in $apps) { Write-Centered "Instalando $a..." "Gray"; winget install --id $a -e --silent --accept-source-agreements } }
     "12"= { 
         Show-Header; Write-Centered "[*] Switch Modo Seguro..." "Yellow"
         Write-Host "`n"
