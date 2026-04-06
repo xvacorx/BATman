@@ -66,11 +66,24 @@ $Accion_Red = { netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; i
 # --- 5. MENUS CATEGORIZADOS ---
 $menus = @{
     "0" = { 
-        Show-Header; Write-Centered "[!] INICIANDO MANTENIMIENTO AUTOMATICO..." "Red"
-        Write-Centered "1/3 Limpiando basura del sistema..." "Yellow"; &$Accion_Limpieza
-        Write-Centered "2/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
-        Write-Centered "3/3 Reparando archivos (Esto tomara tiempo)..." "Yellow"; &$Accion_Reparacion
-        Write-Host "`n"; Write-Centered "[OK] MANTENIMIENTO COMPLETADO" "Green"; Pause-Menu
+        Show-Header; Write-Centered "[!] MANTENIMIENTO AUTOMATICO..." "Red"
+        Write-Host "`n"
+        Write-Centered "¿Que tareas realiza esta opcion?" "Cyan"
+        Write-Centered "- Limpia archivos temporales, prefetch y cache." "White"
+        Write-Centered "- Resetea la configuracion de red (IP, DNS, Winsock)." "White"
+        Write-Centered "- Ejecuta SFC y DISM para reparar la imagen del sistema." "White"
+        Write-Host "`n"
+        $conf = Read-Host (" " * 18) + "Presione ENTER para continuar o 'Q' para cancelar"
+        if ($conf -ne 'q' -and $conf -ne 'Q') {
+            Write-Host "`n"
+            Write-Centered "1/3 Limpiando basura del sistema..." "Yellow"; &$Accion_Limpieza
+            Write-Centered "2/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
+            Write-Centered "3/3 Reparando archivos (Esto tomara tiempo)..." "Yellow"; &$Accion_Reparacion
+            Write-Host "`n"; Write-Centered "[OK] MANTENIMIENTO COMPLETADO" "Green"
+        } else {
+            Write-Host "`n"; Write-Centered "Operacion cancelada por el usuario." "Gray"
+        }
+        Pause-Menu
     }
     
     "1" = { # DIAGNOSTICO
@@ -197,21 +210,36 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== SOFTWARE Y ARRANQUE ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Gestor de Instalaciones (Chrome, AnyDesk, etc)" "White"
+            Write-Centered "1. Gestor de Instalaciones (Apps y Utilidades)" "White"
             Write-Centered "2. Ver Programas que Inician con Windows" "White"
             Write-Centered "3. Alternar Modo Seguro (Safe Mode)" "White"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             $op = Read-Host "`n" + (" " * 35) + "Opcion"; Write-Host ""
             switch($op) {
                 '1' { 
-                    Show-Header; Write-Centered "-- INSTALADOR SILENCIOSO --" "Cyan"; Write-Host ""
-                    Write-Centered "1. Chrome | 2. AnyDesk | 3. 7-Zip | 4. TODOS" "Yellow"
-                    $inst = Read-Host (" " * 35) + "Opcion"
-                    if($inst -eq '1'){ winget install Google.Chrome -e --silent --accept-source-agreements }
-                    if($inst -eq '2'){ winget install AnyDesk.AnyDesk -e --silent --accept-source-agreements }
-                    if($inst -eq '3'){ winget install 7zip.7zip -e --silent --accept-source-agreements }
-                    if($inst -eq '4'){ foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --silent --accept-source-agreements} }
-                    Write-Centered "Instalacion finalizada." "Green"; Pause-Menu
+                    $subSoft = $true
+                    while($subSoft) {
+                        Show-Header; Write-Centered "-- GESTOR DE SOFTWARE --" "Cyan"; Write-Host "`n"
+                        Write-Centered "[ PAQUETE BASICO ]" "Yellow"
+                        Write-Centered " 1. Chrome   2. AnyDesk   3. 7-Zip   4. Instalar TODOS (1-3)" "White"
+                        Write-Host "`n"
+                        Write-Centered "[ HERRAMIENTAS OPCIONALES ]" "Yellow"
+                        Write-Centered " 5. VLC Media   6. Notepad++   7. Adobe Reader   8. Zoom" "White"
+                        Write-Host "`n"
+                        Write-Centered " 0. Volver" "Gray"
+                        $inst = Read-Host "`n" + (" " * 35) + "Opcion"
+                        switch($inst) {
+                            '1' { Write-Centered "Instalando Chrome..." "Cyan"; winget install Google.Chrome -e --silent --accept-source-agreements; Pause-Menu }
+                            '2' { Write-Centered "Instalando AnyDesk..." "Cyan"; winget install AnyDesk.AnyDesk -e --silent --accept-source-agreements; Pause-Menu }
+                            '3' { Write-Centered "Instalando 7-Zip..." "Cyan"; winget install 7zip.7zip -e --silent --accept-source-agreements; Pause-Menu }
+                            '4' { Write-Centered "Instalando Paquete Basico..." "Cyan"; foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --silent --accept-source-agreements}; Pause-Menu }
+                            '5' { Write-Centered "Instalando VLC..." "Cyan"; winget install VideoLAN.VLC -e --silent --accept-source-agreements; Pause-Menu }
+                            '6' { Write-Centered "Instalando Notepad++..." "Cyan"; winget install Notepad++.Notepad++ -e --silent --accept-source-agreements; Pause-Menu }
+                            '7' { Write-Centered "Instalando Adobe Reader..." "Cyan"; winget install Adobe.Acrobat.Reader.64-bit -e --silent --accept-source-agreements; Pause-Menu }
+                            '8' { Write-Centered "Instalando Zoom..." "Cyan"; winget install Zoom.Zoom -e --silent --accept-source-agreements; Pause-Menu }
+                            '0' { $subSoft = $false }
+                        }
+                    }
                 }
                 '2' { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
                 '3' { 
