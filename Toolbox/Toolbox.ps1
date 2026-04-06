@@ -108,7 +108,7 @@ $menus = @{
                 }
                 '2' { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "Yellow" }; Pause-Menu }
                 '3' { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
-                '4' { wmic diskdrive get model,status | Out-String | ForEach-Object { Write-Centered $_.Trim() "Yellow" }; Pause-Menu }
+                '4' { Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Format-Table -AutoSize | Out-String | ForEach-Object { Write-Centered $_.Trim() "Yellow" }; Pause-Menu }
                 '0' { $sub = $false }
             }
         }
