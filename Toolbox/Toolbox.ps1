@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V5.0 God Mode Edition)
+# TOOLBOX TECNICO PRO - By Viktor (V6.0 Omega Build)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
@@ -46,6 +46,12 @@ function Write-ToolboxLog([string]$action) {
         $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         $logEntry = "[$timestamp] [ADMIN] - $action"
         $logEntry | Out-File -FilePath $logPath -Append -Encoding UTF8
+        
+        # Rotacion de logs (Mantiene solo las ultimas 500 lineas)
+        $logContent = Get-Content $logPath
+        if ($logContent.Count -gt 500) {
+            $logContent[-500..-1] | Set-Content $logPath -Encoding UTF8
+        }
     } catch { }
 }
 
@@ -136,7 +142,6 @@ function Get-KeyPress {
                 return $key
             }
         } catch {
-            # Fallback si falla ReadKey en un emulador raro
             $key = Read-Host
             return $key.ToUpper()
         }
@@ -234,7 +239,7 @@ $menus = @{
                 Write-Centered "[OK] MANTENIMIENTO COMPLETADO CON EXITO" "Green"
                 Write-Centered "Reporte guardado en el Escritorio publico." "Cyan"
                 
-                Play-FinishBeep # Aviso acustico de finalizacion
+                Play-FinishBeep
                 
                 if ($conf -eq '2') { [Console]::Clear(); exit }
                 Pause-Menu; $subAuto = $false
@@ -260,7 +265,7 @@ $menus = @{
             Write-Centered "1. Resumen de Sistema (Hardware, Alerta de Disco, Uptime)" "White"
             Write-Centered "2. Estado de Licencia (Activacion real)" "White"
             Write-Centered "3. Ver Ultimos Pantallazos Azules (BSOD)" "White"
-            Write-Centered "4. Ver Salud de Discos (S.M.A.R.T.)" "White"
+            Write-Centered "4. Ver Salud de Discos y Tipo (SSD/HDD)" "White"
             Write-Centered "5. Generar Reporte de Bateria (HTML)" "Yellow"
             Write-Centered "6. Exportar Inventario de PC (TXT)" "Yellow"
             Write-Centered "7. Ver Historial de Auditoria Local (Logs)" "Cyan"
@@ -281,7 +286,11 @@ $menus = @{
                         if ($bootTime.GetType().Name -eq "String") { $bootTime = $os.ConvertToDateTime($bootTime) }
                         $timespan = New-TimeSpan -Start $bootTime -End (Get-Date)
                         $uptimeStr = "$($timespan.Days) Dias, $($timespan.Hours) Horas, $($timespan.Minutes) Minutos"
-                    } catch { $uptimeStr = "No se pudo calcular" }
+                        # Semáforo de Fatiga
+                        if ($timespan.Days -ge 30) { $uptimeColor = "Red" }
+                        elseif ($timespan.Days -ge 15) { $uptimeColor = "Yellow" }
+                        else { $uptimeColor = "Green" }
+                    } catch { $uptimeStr = "No se pudo calcular"; $uptimeColor = "White" }
                     
                     $bl = Get-WmiCim -Class "Win32_EncryptableVolume" -Namespace "Root\CIMv2\Security\MicrosoftVolumeEncryption" -Filter "DriveLetter='C:'"
                     if ($bl) { if ($bl.ProtectionStatus -eq 1) { $blStatus = "Cifrado (ACTIVADO)" } else { $blStatus = "Desencriptado (DESACTIVADO)" } } else { $blStatus = "No Detectado" }
@@ -299,7 +308,7 @@ $menus = @{
                     if ($diskStr -match "CRITICO") { Write-Centered "Almacenamiento (C:): $diskStr" "Red" } else { Write-Centered "Almacenamiento (C:): $diskStr" "White" }
                     Write-Centered "Serial (BIOS): $serial" "White"
                     Write-Host "`n"
-                    Write-Centered "Tiempo Encendido (Uptime): $uptimeStr" "Cyan"
+                    Write-Centered "Tiempo Encendido (Uptime): $uptimeStr" $uptimeColor
                     if($blStatus -match "ACTIVADO"){Write-Centered "Estado BitLocker (C:): $blStatus" "Red"}else{Write-Centered "Estado BitLocker (C:): $blStatus" "Green"}
                     
                     $keyObj = Get-WmiCim "SoftwareLicensingService"
@@ -309,14 +318,27 @@ $menus = @{
                 }
                 '2' { Show-Header; Write-Centered "--- ESTADO DE LICENCIA ---" "Cyan"; Write-Host "`n"; cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
                 '3' { Show-Header; Write-Centered "--- ULTIMOS 5 ERRORES CRITICOS ---" "Red"; Write-Host "`n"; Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
-                '4' { Show-Header; Write-Centered "--- SALUD DEL DISCO ---" "Cyan"; Write-Host "`n"; Get-WmiCim "Win32_DiskDrive" | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
-                '5' { 
-                    Show-Header; Write-Centered "Generando reporte de bateria..." "Cyan"
-                    powercfg /batteryreport /output "$PublicDesktop\BatteryReport.html" | Out-Null
-                    if (Test-Path "$PublicDesktop\BatteryReport.html") {
-                        Invoke-Item "$PublicDesktop\BatteryReport.html"; Write-Centered "Reporte abierto desde el Escritorio publico." "Green"
+                '4' { 
+                    Show-Header; Write-Centered "--- SALUD DEL DISCO ---" "Cyan"; Write-Host "`n"
+                    if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) {
+                        Get-PhysicalDisk | Select-Object MediaType, Model, HealthStatus | Format-Table -AutoSize | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" }
                     } else {
-                        Write-Centered "[!] El sistema operativo no soporta esta funcion (Win 8+ requerido)." "Yellow"
+                        Get-WmiCim "Win32_DiskDrive" | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" }
+                    }
+                    Pause-Menu 
+                }
+                '5' { 
+                    Show-Header; Write-Centered "Generando reporte de bateria..." "Cyan"; Write-Host "`n"
+                    $battery = Get-WmiCim "Win32_Battery"
+                    if (-not $battery) {
+                        Write-Centered "[!] Este equipo no posee bateria (PC de Escritorio)." "Yellow"
+                    } else {
+                        powercfg /batteryreport /output "$PublicDesktop\BatteryReport.html" | Out-Null
+                        if (Test-Path "$PublicDesktop\BatteryReport.html") {
+                            Invoke-Item "$PublicDesktop\BatteryReport.html"; Write-Centered "Reporte abierto desde el Escritorio publico." "Green"
+                        } else {
+                            Write-Centered "[!] El sistema operativo no soporta esta funcion (Win 8+ requerido)." "Yellow"
+                        }
                     }
                     Pause-Menu 
                 }
@@ -327,6 +349,7 @@ $menus = @{
                     if ($ramObj) { $ram = [Math]::Round(($ramObj | Measure-Object Capacity -Sum).Sum / 1GB) } else { $ram = "?" }
                     "=== INVENTARIO DE EQUIPO ===" | Out-File $inv
                     "Nombre de PC: $env:COMPUTERNAME" | Out-File $inv -Append
+                    "Usuario: $env:USERNAME" | Out-File $inv -Append
                     "Sistema: $((Get-WmiCim Win32_OperatingSystem).Caption)" | Out-File $inv -Append
                     "CPU: $((Get-WmiCim Win32_Processor).Name)" | Out-File $inv -Append
                     "RAM: $ram GB" | Out-File $inv -Append
@@ -473,6 +496,7 @@ $menus = @{
                 '3' {
                     Show-Header; Write-Centered "Limpiando actualizaciones antiguas (Esto puede demorar)..." "Red"
                     dism /online /cleanup-image /StartComponentCleanup | Out-Null
+                    Play-FinishBeep
                     Write-Centered "Carpeta WinSxS depurada. Gigabytes recuperados." "Green"; Write-ToolboxLog "Limpieza profunda WinSxS ejecutada."; Pause-Menu
                 }
                 '0' { $sub = $false }
