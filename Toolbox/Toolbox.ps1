@@ -51,8 +51,16 @@ function Show-Header {
 
 function Pause-Menu {
     Write-Host "`n"
-    Write-Centered "Presione Enter para continuar..." "Gray"
-    Read-Host
+    Write-Centered "Presione cualquier tecla para continuar..." "Gray"
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
+
+function Get-KeyPress {
+    Write-Host "`n"
+    Write-Host (" " * 36) + "Opcion: " -ForegroundColor Gray -NoNewline
+    $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character.ToString().ToUpper()
+    Write-Host $key -ForegroundColor Cyan
+    return $key
 }
 
 # --- 4. ACCIONES MAESTRAS (SILENCIOSAS PARA AUTO-MODO) ---
@@ -65,25 +73,34 @@ $Accion_Red = { netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; i
 
 # --- 5. MENUS CATEGORIZADOS ---
 $menus = @{
-    "0" = { 
-        Show-Header; Write-Centered "[!] MANTENIMIENTO AUTOMATICO..." "Red"
-        Write-Host "`n"
-        Write-Centered "¿Que tareas realiza esta opcion?" "Cyan"
-        Write-Centered "- Limpia archivos temporales, prefetch y cache." "White"
-        Write-Centered "- Resetea la configuracion de red (IP, DNS, Winsock)." "White"
-        Write-Centered "- Ejecuta SFC y DISM para reparar la imagen del sistema." "White"
-        Write-Host "`n"
-        $conf = Read-Host (" " * 18) + "Presione ENTER para continuar o 'Q' para cancelar"
-        if ($conf -ne 'q' -and $conf -ne 'Q') {
+    "A" = { 
+        $subAuto = $true
+        while($subAuto){
+            Show-Header; Write-Centered "[!] MANTENIMIENTO AUTOMATICO..." "Red"
             Write-Host "`n"
-            Write-Centered "1/3 Limpiando basura del sistema..." "Yellow"; &$Accion_Limpieza
-            Write-Centered "2/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
-            Write-Centered "3/3 Reparando archivos (Esto tomara tiempo)..." "Yellow"; &$Accion_Reparacion
-            Write-Host "`n"; Write-Centered "[OK] MANTENIMIENTO COMPLETADO" "Green"
-        } else {
-            Write-Host "`n"; Write-Centered "Operacion cancelada por el usuario." "Gray"
+            Write-Centered "Tareas programadas:" "Cyan"
+            Write-Centered "- Limpieza de temporales, prefetch y cache." "White"
+            Write-Centered "- Reset de red completo (IP, DNS, Winsock)." "White"
+            Write-Centered "- Reparacion profunda de imagen (SFC + DISM)." "White"
+            Write-Host "`n"
+            Write-Centered " 1. Ejecutar y Volver al Menu " "Yellow"
+            Write-Centered " 2. Ejecutar y CERRAR Toolbox " "Red"
+            Write-Host "`n"
+            Write-Centered " 0. Volver " "Gray"
+            
+            $conf = Get-KeyPress
+            if ($conf -eq '1' -or $conf -eq '2') {
+                Write-Host "`n"
+                Write-Centered "1/3 Limpiando basura del sistema..." "Yellow"; &$Accion_Limpieza
+                Write-Centered "2/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
+                Write-Centered "3/3 Reparando archivos (Esto tomara tiempo)..." "Yellow"; &$Accion_Reparacion
+                Write-Host "`n"; Write-Centered "[OK] MANTENIMIENTO COMPLETADO" "Green"
+                if ($conf -eq '2') { exit }
+                Pause-Menu; $subAuto = $false
+            } elseif ($conf -eq '0') {
+                $subAuto = $false
+            }
         }
-        Pause-Menu
     }
     
     "1" = { # DIAGNOSTICO
@@ -94,8 +111,10 @@ $menus = @{
             Write-Centered "2. Estado de Licencia (Activacion real)" "White"
             Write-Centered "3. Ver Ultimos Pantallazos Azules (BSOD)" "White"
             Write-Centered "4. Ver Salud de Discos (S.M.A.R.T.)" "White"
+            Write-Centered "5. Generar Reporte de Bateria (HTML)" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
-            $op = Read-Host "`n" + (" " * 35) + "Opcion"; Write-Host ""
+            
+            $op = Get-KeyPress
             switch($op) {
                 '1' { 
                     $serial = (Get-WmiObject Win32_Bios).SerialNumber
@@ -109,6 +128,7 @@ $menus = @{
                 '2' { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "Yellow" }; Pause-Menu }
                 '3' { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
                 '4' { Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "Yellow" }; Pause-Menu }
+                '5' { Write-Centered "Generando reporte..." "Cyan"; powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null; Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte guardado en Escritorio y abierto." "Green"; Pause-Menu }
                 '0' { $sub = $false }
             }
         }
@@ -122,16 +142,19 @@ $menus = @{
             Write-Centered "2. Programar Reparacion de Disco (CHKDSK)" "White"
             Write-Centered "3. Hard Reset Windows Update" "Red"
             Write-Centered "4. Destrabar Cola de Impresion" "White"
-            Write-Centered "5. Reconstruir Cache de Iconos (Pantalla blanca)" "White"
+            Write-Centered "5. Reconstruir Cache de Iconos" "White"
+            Write-Centered "6. Alternar Administrador Oculto" "Yellow"
+            Write-Centered "7. Forzar Sincronizacion de Hora" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
-            $op = Read-Host "`n" + (" " * 35) + "Opcion"; Write-Host ""
+            
+            $op = Get-KeyPress
             switch($op) {
                 '1' { Write-Centered "Reparando..." "Cyan"; &$Accion_Reparacion; Write-Centered "Listo." "Green"; Pause-Menu }
                 '2' { 
                     Write-Centered "A. Escaneo Rapido (/f) | B. Escaneo Profundo (/f /r)" "Yellow"
-                    $chk = Read-Host (" " * 35) + "Opcion"
-                    if ($chk -match 'A') { cmd.exe /c "echo S | chkdsk C: /f" | Out-Null; Write-Centered "Programado para el reinicio." "Green" }
-                    if ($chk -match 'B') { cmd.exe /c "echo S | chkdsk C: /f /r" | Out-Null; Write-Centered "Programado para el reinicio." "Green" }
+                    $chk = Get-KeyPress
+                    if ($chk -eq 'A') { cmd.exe /c "echo S | chkdsk C: /f" | Out-Null; Write-Centered "Programado para el reinicio." "Green" }
+                    if ($chk -eq 'B') { cmd.exe /c "echo S | chkdsk C: /f /r" | Out-Null; Write-Centered "Programado para el reinicio." "Green" }
                     Pause-Menu
                 }
                 '3' { 
@@ -153,6 +176,19 @@ $menus = @{
                     Remove-Item "$env:localappdata\Microsoft\Windows\Explorer\iconcache*" -Force -ErrorAction SilentlyContinue
                     Start-Process explorer; Write-Centered "Escritorio recargado." "Green"; Pause-Menu
                 }
+                '6' {
+                    Write-Centered "A. Activar Administrador | B. Desactivar" "Yellow"
+                    $adm = Get-KeyPress
+                    if ($adm -eq 'A') { net user administrador /active:yes | Out-Null; net user administrator /active:yes | Out-Null; Write-Centered "Cuenta Habilitada." "Green" }
+                    if ($adm -eq 'B') { net user administrador /active:no | Out-Null; net user administrator /active:no | Out-Null; Write-Centered "Cuenta Deshabilitada." "Green" }
+                    Pause-Menu
+                }
+                '7' {
+                    Write-Centered "Sincronizando reloj con servidores de Windows..." "Cyan"
+                    Restart-Service w32time -ErrorAction SilentlyContinue
+                    w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "Yellow" }
+                    Pause-Menu
+                }
                 '0' { $sub = $false }
             }
         }
@@ -166,7 +202,8 @@ $menus = @{
             Write-Centered "2. Extraer Claves Wi-Fi Guardadas" "White"
             Write-Centered "3. Test de Conectividad e Info IP" "White"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
-            $op = Read-Host "`n" + (" " * 35) + "Opcion"; Write-Host ""
+            
+            $op = Get-KeyPress
             switch($op) {
                 '1' { &$Accion_Red; Write-Centered "Red reseteada. Reinicie el equipo." "Green"; Pause-Menu }
                 '2' { 
@@ -193,7 +230,8 @@ $menus = @{
             Write-Centered "1. Borrar Archivos Temporales y Cache" "White"
             Write-Centered "2. Purgar Visor de Eventos (Borrar Logs)" "Red"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
-            $op = Read-Host "`n" + (" " * 35) + "Opcion"; Write-Host ""
+            
+            $op = Get-KeyPress
             switch($op) {
                 '1' { &$Accion_Limpieza; Write-Centered "Basura eliminada." "Green"; Pause-Menu }
                 '2' { 
@@ -214,20 +252,22 @@ $menus = @{
             Write-Centered "2. Ver Programas que Inician con Windows" "White"
             Write-Centered "3. Alternar Modo Seguro (Safe Mode)" "White"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
-            $op = Read-Host "`n" + (" " * 35) + "Opcion"; Write-Host ""
+            
+            $op = Get-KeyPress
             switch($op) {
                 '1' { 
                     $subSoft = $true
                     while($subSoft) {
                         Show-Header; Write-Centered "-- GESTOR DE SOFTWARE --" "Cyan"; Write-Host "`n"
                         Write-Centered "[ PAQUETE BASICO ]" "Yellow"
-                        Write-Centered " 1. Chrome   2. AnyDesk   3. 7-Zip   4. Instalar TODOS (1-3)" "White"
+                        Write-Centered " 1. Chrome | 2. AnyDesk | 3. 7-Zip | 4. TODOS (1-3)" "White"
                         Write-Host "`n"
                         Write-Centered "[ HERRAMIENTAS OPCIONALES ]" "Yellow"
-                        Write-Centered " 5. VLC Media   6. Notepad++   7. Adobe Reader   8. Zoom" "White"
+                        Write-Centered " 5. VLC Media | 6. Notepad++ | 7. Reader | 8. Zoom" "White"
                         Write-Host "`n"
                         Write-Centered " 0. Volver" "Gray"
-                        $inst = Read-Host "`n" + (" " * 35) + "Opcion"
+                        
+                        $inst = Get-KeyPress
                         switch($inst) {
                             '1' { Write-Centered "Instalando Chrome..." "Cyan"; winget install Google.Chrome -e --silent --accept-source-agreements; Pause-Menu }
                             '2' { Write-Centered "Instalando AnyDesk..." "Cyan"; winget install AnyDesk.AnyDesk -e --silent --accept-source-agreements; Pause-Menu }
@@ -244,9 +284,9 @@ $menus = @{
                 '2' { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
                 '3' { 
                     Write-Centered "A. Activar Modo Seguro | B. Desactivar (Normal)" "Yellow"
-                    $sm = Read-Host (" " * 35) + "Opcion"
-                    if ($sm -match 'A') { bcdedit /set "{current}" safeboot minimal | Out-Null; Write-Centered "Modo Seguro ACTIVADO. Reinicie." "Green" }
-                    if ($sm -match 'B') { bcdedit /deletevalue "{current}" safeboot | Out-Null; Write-Centered "Modo Seguro DESACTIVADO. Reinicie." "Green" }
+                    $sm = Get-KeyPress
+                    if ($sm -eq 'A') { bcdedit /set "{current}" safeboot minimal | Out-Null; Write-Centered "Modo Seguro ACTIVADO. Reinicie." "Green" }
+                    if ($sm -eq 'B') { bcdedit /deletevalue "{current}" safeboot | Out-Null; Write-Centered "Modo Seguro DESACTIVADO. Reinicie." "Green" }
                     Pause-Menu
                 }
                 '0' { $sub = $false }
@@ -263,12 +303,12 @@ do {
     Write-Centered " 3. Redes y Conectividad               " "White"
     Write-Centered " 4. Limpieza y Mantenimiento           " "White"
     Write-Centered " 5. Gestor de Software y Arranque      " "White"
-    Write-Host ""
-    Write-Centered " 0. MODO AUTOMATICO (1 Clic)           " "Green"
-    Write-Host ""
+    Write-Host "`n"
+    Write-Centered " A. MODO AUTOMATICO (1 Clic)           " "Green"
+    Write-Host "`n"
     Write-Centered "-------------------------------------------------------" "Gray"
-    Write-Centered " Q. Salir                              " "White"
+    Write-Centered " 0. Salir                              " "Gray"
     
-    $choice = Read-Host "`n" + (" " * 32) + "Seleccione una categoria"
+    $choice = Get-KeyPress
     if ($menus.ContainsKey($choice)) { & $menus[$choice] }
-} while ($choice -ne "q")
+} while ($choice -ne "0")
