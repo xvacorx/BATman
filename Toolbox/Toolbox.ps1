@@ -1,25 +1,40 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V2.0 Enterprise)
+# TOOLBOX TECNICO PRO - By Viktor (V2.1 Ultra-Estable)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
-# --- 1. AUTO-ELEVACION ---
+# --- 1. ELEVACION INTELIGENTE (SOPORTA ONLINE Y OFFLINE) ---
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm tinyurl.com/VikToolBox)`""
+    if ($PSCommandPath) {
+        # Ejecucion desde archivo local (USB)
+        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    } else {
+        # Ejecucion desde web (irm)
+        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm tinyurl.com/VikToolBox)`""
+    }
     exit
 }
 
-# --- 2. CONFIGURACION DE VENTANA PANORAMICA (WIDESCREEN) ---
+# --- 2. CONFIGURACION DE VENTANA ANTI-CRASH ---
 if ($Host.Name -eq "ConsoleHost") {
-    $Raw = $Host.UI.RawUI
-    $Raw.BackgroundColor = "Black"
-    $Raw.ForegroundColor = "White"
-    $Size = $Raw.WindowSize
-    $Size.Width = 110
-    $Size.Height = 38
-    $Raw.BufferSize = $Size
-    $Raw.WindowSize = $Size
+    try {
+        $Raw = $Host.UI.RawUI
+        $Raw.BackgroundColor = "Black"
+        $Raw.ForegroundColor = "White"
+        
+        # Buffer más largo para evitar cortes
+        $Buffer = $Raw.BufferSize
+        $Buffer.Width = 110
+        $Buffer.Height = 3000
+        $Raw.BufferSize = $Buffer
+
+        # Intenta Widescreen, si la resolucion es baja, no crashea
+        $Size = $Raw.WindowSize
+        $Size.Width = [math]::Min(110, $Raw.MaxWindowSize.Width)
+        $Size.Height = [math]::Min(38, $Raw.MaxWindowSize.Height)
+        $Raw.WindowSize = $Size
+    } catch { }
 }
 [Console]::BackgroundColor = "Black"
 [Console]::Clear() 
@@ -38,6 +53,7 @@ function Write-ToolboxLog([string]$action) {
 function Write-Centered {
     param([string]$text, [string]$color = "White", [string]$bg = "Black")
     $width = [Console]::WindowWidth
+    if ($width -le 0) { $width = 110 } # Fallback de seguridad
     $padding = [math]::Max(0, [int](($width - $text.Length) / 2))
     Write-Host (" " * $padding) -NoNewline
     Write-Host $text -ForegroundColor $color -BackgroundColor $bg
@@ -58,6 +74,7 @@ function Show-Header {
     
     $legendText = "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Reset/Borrado]"
     $width = [Console]::WindowWidth
+    if ($width -le 0) { $width = 110 }
     $padding = [math]::Max(0, [int](($width - $legendText.Length) / 2))
     Write-Host (" " * $padding) -NoNewline
     Write-Host "[" -ForegroundColor Gray -NoNewline
@@ -79,9 +96,21 @@ function Pause-Menu {
 function Get-KeyPress {
     Write-Host "`n"
     Write-Host (" " * 46) + "Opcion: " -ForegroundColor Gray -NoNewline
-    $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character.ToString().ToUpper()
-    Write-Host $key -ForegroundColor Cyan
-    return $key
+    while ($true) {
+        $keyInfo = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        # Inmunidad: Solo acepta letras y numeros (ignora Shift, Ctrl, F1, flechas)
+        if ($keyInfo.Character -match '[a-zA-Z0-9]') {
+            $key = $keyInfo.Character.ToString().ToUpper()
+            Write-Host $key -ForegroundColor Cyan
+            return $key
+        }
+    }
+}
+
+function Test-Winget {
+    if (Get-Command winget -ErrorAction SilentlyContinue) { return $true }
+    Write-Centered "[!] WINGET NO DETECTADO: El sistema no es compatible con esta funcion." "Yellow"
+    return $false
 }
 
 # --- 4. ACCIONES MAESTRAS ---
@@ -319,9 +348,17 @@ $menus = @{
                 '1' { Show-Header; &$Accion_Red; Write-Centered "Red reseteada." "Green"; Pause-Menu }
                 '2' { 
                     Show-Header; Write-Centered "--- CLAVES WI-FI ---" "Cyan"; Write-Host "`n"
+                    $wifiPath = "$env:USERPROFILE\Desktop\Claves_WiFi.txt"
+                    "=== CLAVES WI-FI HISTORICAS ===" | Out-File $wifiPath
+                    
                     $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
-                    foreach ($profile in $profiles) { $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }; Write-Centered "$profile : $pass" "Green" }
-                    Write-ToolboxLog "Claves Wi-Fi extraidas."; Pause-Menu 
+                    foreach ($profile in $profiles) { 
+                        $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
+                        Write-Centered "$profile : $pass" "Green"
+                        "$profile : $pass" | Out-File $wifiPath -Append
+                    }
+                    Write-Host "`n"; Write-Centered "Archivo Claves_WiFi guardado en el Escritorio." "Yellow"
+                    Write-ToolboxLog "Claves Wi-Fi extraidas y exportadas."; Pause-Menu 
                 }
                 '3' { 
                     Show-Header; Write-Centered "--- TEST DE CONECTIVIDAD ---" "Cyan"; Write-Host "`n"
@@ -370,6 +407,7 @@ $menus = @{
             $op = Get-KeyPress
             switch($op) {
                 '1' { 
+                    if (-not (Test-Winget)) { Pause-Menu; break }
                     $subSoft = $true
                     while($subSoft) {
                         Show-Header; Write-Centered "-- GESTOR DE SOFTWARE --" "Cyan"; Write-Host "`n"
@@ -397,6 +435,7 @@ $menus = @{
                 }
                 '2' { 
                     Show-Header; Write-Centered "--- ACTUALIZADOR GLOBAL WINGET ---" "Yellow"; Write-Host "`n"
+                    if (-not (Test-Winget)) { Pause-Menu; break }
                     if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) {
                         winget upgrade --all --include-unknown --accept-source-agreements
                         Write-Host "`n"; Write-Centered "Actualizacion global finalizada." "Green"
