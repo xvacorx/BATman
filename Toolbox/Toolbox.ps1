@@ -46,6 +46,7 @@ function Show-Header {
     Write-Centered "  =======================================================  " "Gray"
     Write-Centered "              TOOLBOX TECNICO PRO - By Viktor              " "White" "Blue"
     Write-Centered "  =======================================================  " "Gray"
+    Write-Centered " [Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Reset/Borrado] " "Gray"
     Write-Host "`n"
 }
 
@@ -76,7 +77,7 @@ $menus = @{
     "A" = { 
         $subAuto = $true
         while($subAuto){
-            Show-Header; Write-Centered "[!] MANTENIMIENTO AUTOMATICO..." "Red"
+            Show-Header; Write-Centered "[!] MANTENIMIENTO AUTOMATICO..." "Green"
             Write-Host "`n"
             Write-Centered "Tareas programadas:" "Cyan"
             Write-Centered "- Limpieza de temporales, prefetch y cache." "White"
@@ -135,14 +136,14 @@ $menus = @{
                     $serial = (Get-WmiObject Win32_Bios).SerialNumber
                     $cpu = (Get-WmiObject Win32_Processor).Name
                     $ram = [Math]::Round((Get-WmiObject Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB)
-                    Write-Centered "CPU: $cpu" "Yellow"; Write-Centered "RAM: $ram GB" "Yellow"; Write-Centered "Serial: $serial" "Yellow"
+                    Write-Centered "CPU: $cpu" "Cyan"; Write-Centered "RAM: $ram GB" "Cyan"; Write-Centered "Serial: $serial" "Cyan"
                     $key = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
                     if($key){ Write-Centered "Licencia BIOS: $key" "Green" }
                     Pause-Menu 
                 }
-                '2' { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "Yellow" }; Pause-Menu }
+                '2' { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "Cyan" }; Pause-Menu }
                 '3' { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
-                '4' { Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "Yellow" }; Pause-Menu }
+                '4' { Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "Cyan" }; Pause-Menu }
                 '5' { Write-Centered "Generando reporte..." "Cyan"; powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null; Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte guardado en Escritorio y abierto." "Green"; Pause-Menu }
                 '0' { $sub = $false }
             }
@@ -153,11 +154,11 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== REPARACION Y SOLUCION DE ERRORES ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Reparar Imagen de Windows (SFC + DISM)" "White"
-            Write-Centered "2. Programar Reparacion de Disco (CHKDSK)" "White"
+            Write-Centered "1. Reparar Imagen de Windows (SFC + DISM)" "Yellow"
+            Write-Centered "2. Programar Reparacion de Disco (CHKDSK)" "Yellow"
             Write-Centered "3. Hard Reset Windows Update" "Red"
-            Write-Centered "4. Destrabar Cola de Impresion" "White"
-            Write-Centered "5. Reconstruir Cache de Iconos" "White"
+            Write-Centered "4. Destrabar Cola de Impresion" "Yellow"
+            Write-Centered "5. Reconstruir Cache de Iconos" "Yellow"
             Write-Centered "6. Alternar Administrador Oculto" "Yellow"
             Write-Centered "7. Forzar Sincronizacion de Hora" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
@@ -185,7 +186,7 @@ $menus = @{
                     Write-Centered "Cola de impresion vaciada." "Green"; Pause-Menu
                 }
                 '5' {
-                    Write-Centered "Reiniciando Explorador y borrando cache..." "Yellow"
+                    Write-Centered "Reiniciando Explorador y borrando cache..." "Cyan"
                     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
                     Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue
                     Remove-Item "$env:localappdata\Microsoft\Windows\Explorer\iconcache*" -Force -ErrorAction SilentlyContinue
@@ -201,7 +202,7 @@ $menus = @{
                 '7' {
                     Write-Centered "Sincronizando reloj con servidores de Windows..." "Cyan"
                     Restart-Service w32time -ErrorAction SilentlyContinue
-                    w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "Yellow" }
+                    w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "Green" }
                     Pause-Menu
                 }
                 '0' { $sub = $false }
@@ -213,7 +214,7 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== REDES Y CONECTIVIDAD ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Resetear Stack de Red Completo" "White"
+            Write-Centered "1. Resetear Stack de Red Completo" "Yellow"
             Write-Centered "2. Extraer Claves Wi-Fi Guardadas" "White"
             Write-Centered "3. Test de Conectividad e Info IP" "White"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
@@ -227,9 +228,9 @@ $menus = @{
                     Pause-Menu 
                 }
                 '3' { 
-                    Write-Centered "Testeando ping a Google (8.8.8.8)..." "Yellow"
+                    Write-Centered "Testeando ping a Google (8.8.8.8)..." "Cyan"
                     Test-Connection -ComputerName 8.8.8.8 -Count 4 -ErrorAction SilentlyContinue | Format-Table Address, ResponseTime
-                    Write-Centered "Adaptadores Activos:" "Yellow"
+                    Write-Centered "Adaptadores Activos:" "Cyan"
                     Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed
                     Pause-Menu
                 }
@@ -242,7 +243,7 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== MANTENIMIENTO Y LIMPIEZA ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Borrar Archivos Temporales y Cache" "White"
+            Write-Centered "1. Borrar Archivos Temporales y Cache" "Yellow"
             Write-Centered "2. Purgar Visor de Eventos (Borrar Logs)" "Red"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
@@ -250,7 +251,7 @@ $menus = @{
             switch($op) {
                 '1' { &$Accion_Limpieza; Write-Centered "Basura eliminada." "Green"; Pause-Menu }
                 '2' { 
-                    Write-Centered "Borrando historial de eventos del sistema..." "Yellow"
+                    Write-Centered "Borrando historial de eventos del sistema..." "Cyan"
                     wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
                     Write-Centered "Logs de Windows completamente limpios." "Green"; Pause-Menu
                 }
@@ -266,7 +267,7 @@ $menus = @{
             Write-Centered "1. Gestor de Instalaciones (Apps y Utilidades)" "White"
             Write-Centered "2. Actualizador Global de Software (Winget)" "Yellow"
             Write-Centered "3. Ver Programas que Inician con Windows" "White"
-            Write-Centered "4. Alternar Modo Seguro (Safe Mode)" "White"
+            Write-Centered "4. Alternar Modo Seguro (Safe Mode)" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -275,11 +276,11 @@ $menus = @{
                     $subSoft = $true
                     while($subSoft) {
                         Show-Header; Write-Centered "-- GESTOR DE SOFTWARE --" "Cyan"; Write-Host "`n"
-                        Write-Centered "[ PAQUETE BASICO ]" "Yellow"
-                        Write-Centered " 1. Chrome | 2. AnyDesk | 3. 7-Zip | 4. TODOS (1-3)" "White"
+                        Write-Centered "[ PAQUETE BASICO ]" "Cyan"
+                        Write-Centered " 1. Chrome | 2. AnyDesk | 3. 7-Zip | 4. TODOS (1-3)" "Yellow"
                         Write-Host "`n"
-                        Write-Centered "[ HERRAMIENTAS OPCIONALES ]" "Yellow"
-                        Write-Centered " 5. VLC Media | 6. Notepad++ | 7. Reader | 8. Zoom" "White"
+                        Write-Centered "[ HERRAMIENTAS OPCIONALES ]" "Cyan"
+                        Write-Centered " 5. VLC Media | 6. Notepad++ | 7. Reader | 8. Zoom" "Yellow"
                         Write-Host "`n"
                         Write-Centered " 0. Volver" "Gray"
                         
@@ -298,7 +299,7 @@ $menus = @{
                     }
                 }
                 '2' { 
-                    Write-Centered "Buscando y aplicando actualizaciones a programas instalados..." "Yellow"
+                    Write-Centered "Buscando y aplicando actualizaciones a programas instalados..." "Cyan"
                     winget upgrade --all --include-unknown --silent --accept-source-agreements
                     Write-Centered "Actualizacion global finalizada." "Green"
                     Pause-Menu
@@ -320,9 +321,9 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== OPTIMIZACIONES DEL SISTEMA ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Deshabilitar Inicio Rapido (Fast Startup) [Recomendado]" "Yellow"
-            Write-Centered "2. Habilitar Inicio Rapido (Fast Startup)" "White"
-            Write-Centered "3. Generar acceso 'God Mode' en Escritorio" "White"
+            Write-Centered "1. Deshabilitar Inicio Rapido (Fast Startup)" "Yellow"
+            Write-Centered "2. Habilitar Inicio Rapido (Fast Startup)" "Yellow"
+            Write-Centered "3. Generar acceso 'God Mode' en Escritorio" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -333,7 +334,7 @@ $menus = @{
                 }
                 '2' { 
                     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force -ErrorAction SilentlyContinue
-                    Write-Centered "Inicio Rapido HABILITADO." "Yellow"; Pause-Menu 
+                    Write-Centered "Inicio Rapido HABILITADO." "Green"; Pause-Menu 
                 }
                 '3' { 
                     $path = "$env:USERPROFILE\Desktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"
@@ -341,7 +342,7 @@ $menus = @{
                         New-Item -ItemType Directory -Path $path | Out-Null
                         Write-Centered "Carpeta 'God Mode' creada en el Escritorio." "Green" 
                     } else { 
-                        Write-Centered "La carpeta 'God Mode' ya existe en el Escritorio." "Yellow" 
+                        Write-Centered "La carpeta 'God Mode' ya existe en el Escritorio." "Cyan" 
                     }
                     Pause-Menu 
                 }
@@ -359,9 +360,9 @@ do {
     Write-Centered " 3. Redes y Conectividad               " "White"
     Write-Centered " 4. Limpieza y Mantenimiento           " "White"
     Write-Centered " 5. Gestor de Software y Arranque      " "White"
-    Write-Centered " 6. Optimizaciones del Sistema         " "Yellow"
+    Write-Centered " 6. Optimizaciones del Sistema         " "White"
     Write-Host "`n"
-    Write-Centered " A. MODO AUTOMATICO (1 Clic)           " "Green"
+    Write-Centered " A. MODO AUTOMATICO                    " "Green"
     Write-Host "`n"
     Write-Centered "-------------------------------------------------------" "Gray"
     Write-Centered " 0. Salir                              " "Gray"
