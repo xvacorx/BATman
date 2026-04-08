@@ -91,10 +91,11 @@ $menus = @{
         while($subAuto){
             Show-Header; Write-Centered "[!] MANTENIMIENTO AUTOMATICO..." "Green"
             Write-Host "`n"
-            Write-Centered "Tareas programadas:" "Cyan"
-            Write-Centered "- Limpieza de temporales, prefetch, cache y papelera." "White"
-            Write-Centered "- Reparacion profunda de imagen (SFC + DISM)." "White"
-            Write-Centered "- Reset de red completo (IP, DNS, Winsock)." "White"
+            Write-Centered "Esta herramienta desatendida realizara lo siguiente:" "Cyan"
+            Write-Host "`n"
+            Write-Centered "1. ELIMINACION: Archivos Temporales, Cache, Prefetch y Papelera." "White"
+            Write-Centered "2. REPARACION: Escaneo SFC y DISM (Toma tiempo/Requiere Internet)." "White"
+            Write-Centered "3. REDES: Reset de IP, DNS y Winsock (Causara un micro-corte)." "White"
             Write-Host "`n"
             Write-Centered " 1. Ejecutar y Volver al Menu " "Yellow"
             Write-Centered " 2. Ejecutar y CERRAR Toolbox " "Red"
@@ -104,8 +105,8 @@ $menus = @{
             $conf = Get-KeyPress
             if ($conf -eq '1' -or $conf -eq '2') {
                 Write-Host "`n"
-                Write-Centered "1/3 Limpiando basura del sistema..." "Yellow"; &$Accion_Limpieza
-                Write-Centered "2/3 Reparando archivos (Requiere Internet)..." "Yellow"; &$Accion_Reparacion
+                Write-Centered "1/3 Limpiando basura del sistema y papelera..." "Yellow"; &$Accion_Limpieza
+                Write-Centered "2/3 Reparando archivos del SO (Aguarde por favor)..." "Yellow"; &$Accion_Reparacion
                 Write-Centered "3/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
                 
                 $reportPath = "$env:USERPROFILE\Desktop\Reporte_Mantenimiento.txt"
@@ -113,7 +114,7 @@ $menus = @{
                 "Toolbox by Viktor" | Out-File -FilePath $reportPath -Append
                 "Fecha: $(Get-Date -Format 'dd/MM/yyyy a las HH:mm:ss')" | Out-File -FilePath $reportPath -Append
                 "--------------------------------" | Out-File -FilePath $reportPath -Append
-                "- Limpieza y Papelera: OK" | Out-File -FilePath $reportPath -Append
+                "- Limpieza Total y Papelera: OK" | Out-File -FilePath $reportPath -Append
                 "- Reparacion de integridad (SFC/DISM): OK" | Out-File -FilePath $reportPath -Append
                 "- Restablecimiento de red: OK" | Out-File -FilePath $reportPath -Append
                 "--------------------------------" | Out-File -FilePath $reportPath -Append
@@ -147,8 +148,8 @@ $menus = @{
             Write-Centered "2. Estado de Licencia (Activacion real)" "White"
             Write-Centered "3. Ver Ultimos Pantallazos Azules (BSOD)" "White"
             Write-Centered "4. Ver Salud de Discos (S.M.A.R.T.)" "White"
-            Write-Centered "5. Generar Reporte de Bateria (HTML)" "Yellow"
-            Write-Centered "6. Exportar Inventario de PC (TXT)" "Yellow"
+            Write-Centered "5. Generar Reporte de Bateria (HTML) [Abre Navegador]" "Yellow"
+            Write-Centered "6. Exportar Inventario de PC (TXT) [Guarda en Escritorio]" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -187,14 +188,14 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== REPARACION Y SOLUCION DE ERRORES ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Reparar Imagen de Windows (SFC + DISM)" "Yellow"
+            Write-Centered "1. Reparar Imagen de Windows (SFC + DISM) [Toma 10-20 Min]" "Yellow"
             Write-Centered "2. Programar Reparacion de Disco (CHKDSK)" "Yellow"
             Write-Centered "3. Escaneo Rapido Antivirus (Windows Defender)" "Yellow"
-            Write-Centered "4. Destrabar Cola de Impresion" "Yellow"
-            Write-Centered "5. Reconstruir Cache de Iconos" "Yellow"
+            Write-Centered "4. Destrabar Cola de Impresion (Borra Spooler)" "Yellow"
+            Write-Centered "5. Reconstruir Cache de Iconos (Reinicia el Explorador)" "Yellow"
             Write-Centered "6. Alternar Administrador Oculto" "Yellow"
             Write-Centered "7. Forzar Sincronizacion de Hora" "Yellow"
-            Write-Centered "8. Hard Reset Windows Update" "Red"
+            Write-Centered "8. Hard Reset Windows Update (Borra SoftwareDistribution)" "Red"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -253,7 +254,7 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== REDES Y CONECTIVIDAD ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Resetear Stack de Red Completo" "Yellow"
+            Write-Centered "1. Resetear Stack de Red Completo (Causa Micro-Corte)" "Yellow"
             Write-Centered "2. Extraer Claves Wi-Fi Guardadas" "White"
             Write-Centered "3. Test de Conectividad e Info IP" "White"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
@@ -282,13 +283,13 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== MANTENIMIENTO Y LIMPIEZA ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Borrar Archivos Temporales, Cache y Papelera" "Yellow"
-            Write-Centered "2. Purgar Visor de Eventos (Borrar Logs)" "Red"
+            Write-Centered "1. Borrar Archivos Temporales, Cache, Prefetch y Papelera" "Yellow"
+            Write-Centered "2. Purgar Visor de Eventos (Borra TODOS los Logs)" "Red"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
             switch($op) {
-                '1' { &$Accion_Limpieza; Write-Centered "Basura eliminada." "Green"; Pause-Menu }
+                '1' { &$Accion_Limpieza; Write-Centered "Basura y Papelera eliminadas." "Green"; Pause-Menu }
                 '2' { 
                     Write-Centered "Borrando historial de eventos del sistema..." "Cyan"
                     wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
@@ -304,7 +305,7 @@ $menus = @{
         while($sub) {
             Show-Header; Write-Centered "=== SOFTWARE Y ARRANQUE ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Gestor de Instalaciones (Apps y Utilidades)" "White"
-            Write-Centered "2. Actualizador Global de Software (Winget)" "Yellow"
+            Write-Centered "2. Actualizador Global de Software (Winget / Silencioso)" "Yellow"
             Write-Centered "3. Ver Programas que Inician con Windows" "White"
             Write-Centered "4. Alternar Modo Seguro (Safe Mode)" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
