@@ -10,14 +10,14 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
     exit
 }
 
-# --- 2. CONFIGURACION DE VENTANA ---
+# --- 2. CONFIGURACION DE VENTANA PANORAMICA (WIDESCREEN) ---
 if ($Host.Name -eq "ConsoleHost") {
     $Raw = $Host.UI.RawUI
     $Raw.BackgroundColor = "Black"
     $Raw.ForegroundColor = "White"
     $Size = $Raw.WindowSize
-    $Size.Width = 90
-    $Size.Height = 36
+    $Size.Width = 110
+    $Size.Height = 38
     $Raw.BufferSize = $Size
     $Raw.WindowSize = $Size
 }
@@ -43,9 +43,9 @@ function Show-Header {
     Write-Centered "    | | | |  | | |  | | |    |  _ <| |  | /  \  " "Cyan"
     Write-Centered "    |_|  \____/ \____/|______|____/ \____/_/\_\ " "Cyan"
     Write-Host "`n"
-    Write-Centered "  =======================================================  " "Gray"
+    Write-Centered ("=" * 80) "Gray"
     Write-Centered "              TOOLBOX TECNICO PRO - By Viktor              " "White" "Blue"
-    Write-Centered "  =======================================================  " "Gray"
+    Write-Centered ("=" * 80) "Gray"
     
     $legendText = "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Reset/Borrado]"
     $width = [Console]::WindowWidth
@@ -69,7 +69,7 @@ function Pause-Menu {
 
 function Get-KeyPress {
     Write-Host "`n"
-    Write-Host (" " * 36) + "Opcion: " -ForegroundColor Gray -NoNewline
+    Write-Host (" " * 46) + "Opcion: " -ForegroundColor Gray -NoNewline
     $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown").Character.ToString().ToUpper()
     Write-Host $key -ForegroundColor Cyan
     return $key
@@ -113,7 +113,6 @@ $menus = @{
             
             $conf = Get-KeyPress
             if ($conf -eq '1' -or $conf -eq '2') {
-                # MODO ENFOQUE: Limpiar pantalla para mostrar solo el progreso
                 Show-Header
                 Write-Centered ">> EJECUTANDO MANTENIMIENTO AUTOMATICO <<" "Green"
                 Write-Host "`n"
@@ -143,7 +142,7 @@ $menus = @{
                 "--------------------------------" | Out-File -FilePath $reportPath -Append
                 "El equipo ha sido optimizado exitosamente. Se recomienda reiniciar." | Out-File -FilePath $reportPath -Append
                 
-                Write-Host "-------------------------------------------------------" -ForegroundColor Gray
+                Write-Centered ("-" * 80) "Gray"
                 Write-Centered "[OK] MANTENIMIENTO COMPLETADO CON EXITO" "Green"
                 Write-Centered "Reporte guardado en el Escritorio." "Cyan"
                 
@@ -168,7 +167,7 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== DIAGNOSTICO E INFO DE SISTEMA ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Resumen de Hardware y Serial" "White"
+            Write-Centered "1. Resumen de Sistema (Hardware, Serial, Uptime, BitLocker)" "White"
             Write-Centered "2. Estado de Licencia (Activacion real)" "White"
             Write-Centered "3. Ver Ultimos Pantallazos Azules (BSOD)" "White"
             Write-Centered "4. Ver Salud de Discos (S.M.A.R.T.)" "White"
@@ -179,13 +178,31 @@ $menus = @{
             $op = Get-KeyPress
             switch($op) {
                 '1' { 
-                    Show-Header; Write-Centered "--- INFO DE HARDWARE ---" "Cyan"; Write-Host "`n"
+                    Show-Header; Write-Centered "--- RADIOGRAFIA DEL SISTEMA ---" "Cyan"; Write-Host "`n"
+                    # Hardware
                     $serial = (Get-WmiObject Win32_Bios).SerialNumber
                     $cpu = (Get-WmiObject Win32_Processor).Name
                     $ram = [Math]::Round((Get-WmiObject Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB)
-                    Write-Centered "CPU: $cpu" "White"; Write-Centered "RAM: $ram GB" "White"; Write-Centered "Serial: $serial" "White"
+                    
+                    # Uptime
+                    $os = Get-WmiObject Win32_OperatingSystem
+                    $uptime = $os.ConvertToDateTime($os.LastBootUpTime)
+                    $timespan = New-TimeSpan -Start $uptime -End (Get-Date)
+                    $uptimeStr = "$($timespan.Days) Dias, $($timespan.Hours) Horas, $($timespan.Minutes) Minutos"
+
+                    # BitLocker
+                    $bl = Get-WmiObject -Namespace "Root\CIMv2\Security\MicrosoftVolumeEncryption" -Class Win32_EncryptableVolume -Filter "DriveLetter='C:'" -ErrorAction SilentlyContinue
+                    if ($bl) { if ($bl.ProtectionStatus -eq 1) { $blStatus = "Cifrado (ACTIVADO)" } else { $blStatus = "Desencriptado (DESACTIVADO)" } } else { $blStatus = "No Detectado" }
+
+                    Write-Centered "Procesador (CPU): $cpu" "White"
+                    Write-Centered "Memoria RAM: $ram GB" "White"
+                    Write-Centered "Serial (BIOS): $serial" "White"
+                    Write-Host "`n"
+                    Write-Centered "Tiempo Encendido (Uptime): $uptimeStr" "Cyan"
+                    if($blStatus -match "ACTIVADO"){Write-Centered "Estado BitLocker (C:): $blStatus" "Red"}else{Write-Centered "Estado BitLocker (C:): $blStatus" "Green"}
+                    
                     $key = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
-                    if($key){ Write-Centered "Licencia BIOS: $key" "Green" }
+                    if($key){ Write-Centered "Licencia OEM BIOS: $key" "Green" }
                     Pause-Menu 
                 }
                 '2' { Show-Header; Write-Centered "--- ESTADO DE LICENCIA ---" "Cyan"; Write-Host "`n"; cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
@@ -386,13 +403,19 @@ $menus = @{
         }
     }
 
-    "6" = { # OPTIMIZACIONES
+    "6" = { # OPTIMIZACIONES Y ATAJOS CLASICOS
         $sub = $true
         while($sub) {
-            Show-Header; Write-Centered "=== OPTIMIZACIONES DEL SISTEMA ===" "Cyan"; Write-Host "`n"
+            Show-Header; Write-Centered "=== OPTIMIZACIONES Y ATAJOS CLASICOS ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Deshabilitar Inicio Rapido (Fast Startup)" "Yellow"
             Write-Centered "2. Habilitar Inicio Rapido (Fast Startup)" "Yellow"
             Write-Centered "3. Generar acceso 'God Mode' en Escritorio" "Yellow"
+            Write-Host "`n"
+            Write-Centered "--- PANELES DE CONTROL ANTIGUOS ---" "Cyan"
+            Write-Centered "4. Panel de Control Principal" "White"
+            Write-Centered "5. Administrador de Dispositivos" "White"
+            Write-Centered "6. Conexiones de Red (Adaptadores)" "White"
+            Write-Centered "7. Programas y Caracteristicas (Desinstalar)" "White"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -418,6 +441,10 @@ $menus = @{
                     }
                     Pause-Menu 
                 }
+                '4' { Start-Process control; Write-Centered "Abriendo Panel de Control..." "Green"; Pause-Menu }
+                '5' { Start-Process devmgmt.msc; Write-Centered "Abriendo Adm. de Dispositivos..." "Green"; Pause-Menu }
+                '6' { Start-Process ncpa.cpl; Write-Centered "Abriendo Conexiones de Red..." "Green"; Pause-Menu }
+                '7' { Start-Process appwiz.cpl; Write-Centered "Abriendo Programas..." "Green"; Pause-Menu }
                 '0' { $sub = $false }
             }
         }
@@ -432,12 +459,12 @@ do {
     Write-Centered " 3. Redes y Conectividad               " "White"
     Write-Centered " 4. Limpieza y Mantenimiento           " "White"
     Write-Centered " 5. Gestor de Software y Arranque      " "White"
-    Write-Centered " 6. Optimizaciones del Sistema         " "White"
+    Write-Centered " 6. Optimizaciones y Atajos Clasicos   " "White"
     Write-Host "`n"
     Write-Centered " A. MODO AUTOMATICO                    " "Green"
     Write-Centered " C. Creditos (GitHub)                  " "Cyan"
     Write-Host "`n"
-    Write-Centered "-------------------------------------------------------" "Gray"
+    Write-Centered ("-" * 80) "Gray"
     Write-Centered " 0. Salir                              " "Gray"
     
     $choice = Get-KeyPress
