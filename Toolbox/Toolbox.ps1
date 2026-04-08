@@ -46,7 +46,19 @@ function Show-Header {
     Write-Centered "  =======================================================  " "Gray"
     Write-Centered "              TOOLBOX TECNICO PRO - By Viktor              " "White" "Blue"
     Write-Centered "  =======================================================  " "Gray"
-    Write-Centered " [Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Reset/Borrado] " "Gray"
+    
+    # Leyenda de colores multicolor centrada
+    $legendText = "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Reset/Borrado]"
+    $width = [Console]::WindowWidth
+    $padding = [math]::Max(0, [int](($width - $legendText.Length) / 2))
+    Write-Host (" " * $padding) -NoNewline
+    Write-Host "[" -ForegroundColor Gray -NoNewline
+    Write-Host "Blanco: Seguro/Info" -ForegroundColor White -NoNewline
+    Write-Host "] | [" -ForegroundColor Gray -NoNewline
+    Write-Host "Amarillo: Avanzado" -ForegroundColor Yellow -NoNewline
+    Write-Host "] | [" -ForegroundColor Gray -NoNewline
+    Write-Host "Rojo: Reset/Borrado" -ForegroundColor Red -NoNewline
+    Write-Host "]" -ForegroundColor Gray
     Write-Host "`n"
 }
 
@@ -117,6 +129,20 @@ $menus = @{
                 $subAuto = $false
             }
         }
+    }
+    
+    "C" = { # CREDITOS
+        Show-Header
+        Write-Centered "=== CREDITOS ===" "Cyan"
+        Write-Host "`n"
+        Write-Centered "Toolbox Tecnico Pro ha sido desarrollado por Viktor." "White"
+        Write-Host "`n"
+        Write-Centered "Repositorio Oficial:" "Gray"
+        Write-Centered "https://github.com/xvacorx" "Cyan"
+        Write-Host "`n"
+        Write-Centered "Abriendo navegador..." "Yellow"
+        Start-Process "https://github.com/xvacorx"
+        Pause-Menu
     }
     
     "1" = { # DIAGNOSTICO
@@ -363,6 +389,7 @@ do {
     Write-Centered " 6. Optimizaciones del Sistema         " "White"
     Write-Host "`n"
     Write-Centered " A. MODO AUTOMATICO                    " "Green"
+    Write-Centered " C. Creditos (GitHub)                  " "Cyan"
     Write-Host "`n"
     Write-Centered "-------------------------------------------------------" "Gray"
     Write-Centered " 0. Salir                              " "Gray"
