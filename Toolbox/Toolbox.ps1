@@ -63,7 +63,7 @@ function Show-Header {
 
 function Pause-Menu {
     Write-Host "`n"
-    Write-Centered "Presione cualquier tecla para continuar..." "Gray"
+    Write-Centered "Presione cualquier tecla para volver al menu..." "Gray"
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
@@ -81,7 +81,16 @@ $Accion_Limpieza = {
     foreach ($i in $p) { Remove-Item $i -Recurse -Force -ErrorAction SilentlyContinue }
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
 }
-$Accion_Reparacion = { dism /online /cleanup-image /restorehealth | Out-Null; sfc /scannow | Out-Null }
+
+$Accion_Reparacion = { 
+    Write-Host "`n"
+    Write-Centered "--- REPARANDO IMAGEN DEL SISTEMA (DISM) ---" "Yellow"
+    dism /online /cleanup-image /restorehealth
+    Write-Host "`n"
+    Write-Centered "--- COMPROBANDO INTEGRIDAD DE ARCHIVOS (SFC) ---" "Yellow"
+    sfc /scannow
+}
+
 $Accion_Red = { netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; ipconfig /flushdns | Out-Null }
 
 # --- 5. MENUS CATEGORIZADOS ---
@@ -104,10 +113,24 @@ $menus = @{
             
             $conf = Get-KeyPress
             if ($conf -eq '1' -or $conf -eq '2') {
+                # MODO ENFOQUE: Limpiar pantalla para mostrar solo el progreso
+                Show-Header
+                Write-Centered ">> EJECUTANDO MANTENIMIENTO AUTOMATICO <<" "Green"
                 Write-Host "`n"
-                Write-Centered "1/3 Limpiando basura del sistema y papelera..." "Yellow"; &$Accion_Limpieza
-                Write-Centered "2/3 Reparando archivos del SO (Aguarde por favor)..." "Yellow"; &$Accion_Reparacion
-                Write-Centered "3/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
+                
+                Write-Centered "[ Paso 1 de 3 ] Limpiando basura del sistema y papelera..." "Yellow"
+                &$Accion_Limpieza
+                Write-Centered "OK" "Green"
+                Write-Host "`n"
+
+                Write-Centered "[ Paso 2 de 3 ] Reparando archivos del SO (Aguarde por favor)..." "Yellow"
+                &$Accion_Reparacion
+                Write-Host "`n"
+
+                Write-Centered "[ Paso 3 de 3 ] Reseteando stack de red..." "Yellow"
+                &$Accion_Red
+                Write-Centered "OK" "Green"
+                Write-Host "`n"
                 
                 $reportPath = "$env:USERPROFILE\Desktop\Reporte_Mantenimiento.txt"
                 "=== REPORTE DE MANTENIMIENTO ===" | Out-File -FilePath $reportPath
@@ -120,8 +143,9 @@ $menus = @{
                 "--------------------------------" | Out-File -FilePath $reportPath -Append
                 "El equipo ha sido optimizado exitosamente. Se recomienda reiniciar." | Out-File -FilePath $reportPath -Append
                 
-                Write-Host "`n"; Write-Centered "[OK] MANTENIMIENTO COMPLETADO" "Green"
-                Write-Centered "Reporte generado en el Escritorio." "Cyan"
+                Write-Host "-------------------------------------------------------" -ForegroundColor Gray
+                Write-Centered "[OK] MANTENIMIENTO COMPLETADO CON EXITO" "Green"
+                Write-Centered "Reporte guardado en el Escritorio." "Cyan"
                 
                 if ($conf -eq '2') { exit }
                 Pause-Menu; $subAuto = $false
@@ -155,20 +179,21 @@ $menus = @{
             $op = Get-KeyPress
             switch($op) {
                 '1' { 
+                    Show-Header; Write-Centered "--- INFO DE HARDWARE ---" "Cyan"; Write-Host "`n"
                     $serial = (Get-WmiObject Win32_Bios).SerialNumber
                     $cpu = (Get-WmiObject Win32_Processor).Name
                     $ram = [Math]::Round((Get-WmiObject Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB)
-                    Write-Centered "CPU: $cpu" "Cyan"; Write-Centered "RAM: $ram GB" "Cyan"; Write-Centered "Serial: $serial" "Cyan"
+                    Write-Centered "CPU: $cpu" "White"; Write-Centered "RAM: $ram GB" "White"; Write-Centered "Serial: $serial" "White"
                     $key = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
                     if($key){ Write-Centered "Licencia BIOS: $key" "Green" }
                     Pause-Menu 
                 }
-                '2' { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "Cyan" }; Pause-Menu }
-                '3' { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
-                '4' { Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "Cyan" }; Pause-Menu }
-                '5' { Write-Centered "Generando reporte..." "Cyan"; powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null; Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte guardado en Escritorio y abierto." "Green"; Pause-Menu }
+                '2' { Show-Header; Write-Centered "--- ESTADO DE LICENCIA ---" "Cyan"; Write-Host "`n"; cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
+                '3' { Show-Header; Write-Centered "--- ULTIMOS 5 ERRORES CRITICOS ---" "Red"; Write-Host "`n"; Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
+                '4' { Show-Header; Write-Centered "--- SALUD DEL DISCO ---" "Cyan"; Write-Host "`n"; Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
+                '5' { Show-Header; Write-Centered "Generando reporte de bateria..." "Cyan"; powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null; Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte guardado en Escritorio y abierto." "Green"; Pause-Menu }
                 '6' {
-                    Write-Centered "Generando TXT con inventario..." "Cyan"
+                    Show-Header; Write-Centered "Generando TXT con inventario..." "Cyan"
                     $inv = "$env:USERPROFILE\Desktop\Inventario_$env:COMPUTERNAME.txt"
                     "=== INVENTARIO DE EQUIPO ===" | Out-File $inv
                     "Nombre de PC: $env:COMPUTERNAME" | Out-File $inv -Append
@@ -200,50 +225,52 @@ $menus = @{
             
             $op = Get-KeyPress
             switch($op) {
-                '1' { Write-Centered "Reparando..." "Cyan"; &$Accion_Reparacion; Write-Centered "Listo." "Green"; Pause-Menu }
+                '1' { Show-Header; &$Accion_Reparacion; Write-Host "`n"; Write-Centered "Listo." "Green"; Pause-Menu }
                 '2' { 
-                    Write-Centered "A. Escaneo Rapido (/f) | B. Escaneo Profundo (/f /r)" "Yellow"
+                    Show-Header; Write-Centered "A. Escaneo Rapido (/f) | B. Escaneo Profundo (/f /r)" "Yellow"
                     $chk = Get-KeyPress
                     if ($chk -eq 'A') { cmd.exe /c "echo S | chkdsk C: /f" | Out-Null; Write-Centered "Programado para el reinicio." "Green" }
                     if ($chk -eq 'B') { cmd.exe /c "echo S | chkdsk C: /f /r" | Out-Null; Write-Centered "Programado para el reinicio." "Green" }
                     Pause-Menu
                 }
                 '3' { 
-                    Write-Centered "Iniciando escaneo rapido de Windows Defender..." "Cyan"
+                    Show-Header; Write-Centered "--- ESCANEO DE WINDOWS DEFENDER ---" "Yellow"; Write-Host "`n"
                     Start-MpScan -ScanType QuickScan
-                    Write-Centered "Escaneo completado." "Green"; Pause-Menu 
+                    Write-Host "`n"; Write-Centered "Escaneo completado." "Green"; Pause-Menu 
                 }
                 '4' { 
+                    Show-Header; Write-Centered "Vaciando cola de impresion..." "Cyan"
                     Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue
                     Remove-Item -Path "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue
                     Start-Service -Name Spooler -ErrorAction SilentlyContinue
                     Write-Centered "Cola de impresion vaciada." "Green"; Pause-Menu
                 }
                 '5' {
-                    Write-Centered "Reiniciando Explorador y borrando cache..." "Cyan"
+                    Show-Header; Write-Centered "Reiniciando Explorador y borrando cache..." "Cyan"
                     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
                     Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue
                     Remove-Item "$env:localappdata\Microsoft\Windows\Explorer\iconcache*" -Force -ErrorAction SilentlyContinue
                     Start-Process explorer; Write-Centered "Escritorio recargado." "Green"; Pause-Menu
                 }
                 '6' {
-                    Write-Centered "A. Activar Administrador | B. Desactivar" "Yellow"
+                    Show-Header; Write-Centered "A. Activar Administrador | B. Desactivar" "Yellow"
                     $adm = Get-KeyPress
                     if ($adm -eq 'A') { net user administrador /active:yes | Out-Null; net user administrator /active:yes | Out-Null; Write-Centered "Cuenta Habilitada." "Green" }
                     if ($adm -eq 'B') { net user administrador /active:no | Out-Null; net user administrator /active:no | Out-Null; Write-Centered "Cuenta Deshabilitada." "Green" }
                     Pause-Menu
                 }
                 '7' {
-                    Write-Centered "Sincronizando reloj con servidores de Windows..." "Cyan"
+                    Show-Header; Write-Centered "Sincronizando reloj con servidores de Windows..." "Cyan"; Write-Host "`n"
                     Restart-Service w32time -ErrorAction SilentlyContinue
-                    w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "Green" }
+                    w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }
                     Pause-Menu
                 }
                 '8' { 
+                    Show-Header; Write-Centered "Reseteando Windows Update..." "Red"
                     Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue
                     Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue
                     Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue
-                    Write-Centered "Servicios de Update reseteados." "Green"; Pause-Menu 
+                    Write-Centered "Servicios de Update reseteados y cache purgado." "Green"; Pause-Menu 
                 }
                 '0' { $sub = $false }
             }
@@ -261,16 +288,18 @@ $menus = @{
             
             $op = Get-KeyPress
             switch($op) {
-                '1' { &$Accion_Red; Write-Centered "Red reseteada. Reinicie el equipo." "Green"; Pause-Menu }
+                '1' { Show-Header; &$Accion_Red; Write-Centered "Red reseteada. Reinicie el equipo." "Green"; Pause-Menu }
                 '2' { 
+                    Show-Header; Write-Centered "--- CLAVES WI-FI ---" "Cyan"; Write-Host "`n"
                     $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
                     foreach ($profile in $profiles) { $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }; Write-Centered "$profile : $pass" "Green" }
                     Pause-Menu 
                 }
                 '3' { 
-                    Write-Centered "Testeando ping a Google (8.8.8.8)..." "Cyan"
+                    Show-Header; Write-Centered "--- TEST DE CONECTIVIDAD ---" "Cyan"; Write-Host "`n"
+                    Write-Centered "Testeando ping a Google (8.8.8.8)..." "Yellow"
                     Test-Connection -ComputerName 8.8.8.8 -Count 4 -ErrorAction SilentlyContinue | Format-Table Address, ResponseTime
-                    Write-Centered "Adaptadores Activos:" "Cyan"
+                    Write-Centered "Adaptadores Activos:" "Yellow"
                     Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed
                     Pause-Menu
                 }
@@ -289,9 +318,9 @@ $menus = @{
             
             $op = Get-KeyPress
             switch($op) {
-                '1' { &$Accion_Limpieza; Write-Centered "Basura y Papelera eliminadas." "Green"; Pause-Menu }
+                '1' { Show-Header; &$Accion_Limpieza; Write-Centered "Basura y Papelera eliminadas." "Green"; Pause-Menu }
                 '2' { 
-                    Write-Centered "Borrando historial de eventos del sistema..." "Cyan"
+                    Show-Header; Write-Centered "Borrando historial de eventos del sistema..." "Red"
                     wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
                     Write-Centered "Logs de Windows completamente limpios." "Green"; Pause-Menu
                 }
@@ -305,7 +334,7 @@ $menus = @{
         while($sub) {
             Show-Header; Write-Centered "=== SOFTWARE Y ARRANQUE ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Gestor de Instalaciones (Apps y Utilidades)" "White"
-            Write-Centered "2. Actualizador Global de Software (Winget / Silencioso)" "Yellow"
+            Write-Centered "2. Actualizador Global de Software (Winget)" "Yellow"
             Write-Centered "3. Ver Programas que Inician con Windows" "White"
             Write-Centered "4. Alternar Modo Seguro (Safe Mode)" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
@@ -326,27 +355,27 @@ $menus = @{
                         
                         $inst = Get-KeyPress
                         switch($inst) {
-                            '1' { Write-Centered "Instalando Chrome..." "Cyan"; winget install Google.Chrome -e --silent --accept-source-agreements; Pause-Menu }
-                            '2' { Write-Centered "Instalando AnyDesk..." "Cyan"; winget install AnyDesk.AnyDesk -e --silent --accept-source-agreements; Pause-Menu }
-                            '3' { Write-Centered "Instalando 7-Zip..." "Cyan"; winget install 7zip.7zip -e --silent --accept-source-agreements; Pause-Menu }
-                            '4' { Write-Centered "Instalando Paquete Basico..." "Cyan"; foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --silent --accept-source-agreements}; Pause-Menu }
-                            '5' { Write-Centered "Instalando VLC..." "Cyan"; winget install VideoLAN.VLC -e --silent --accept-source-agreements; Pause-Menu }
-                            '6' { Write-Centered "Instalando Notepad++..." "Cyan"; winget install Notepad++.Notepad++ -e --silent --accept-source-agreements; Pause-Menu }
-                            '7' { Write-Centered "Instalando Adobe Reader..." "Cyan"; winget install Adobe.Acrobat.Reader.64-bit -e --silent --accept-source-agreements; Pause-Menu }
-                            '8' { Write-Centered "Instalando Zoom..." "Cyan"; winget install Zoom.Zoom -e --silent --accept-source-agreements; Pause-Menu }
+                            '1' { Show-Header; Write-Centered "Instalando Chrome..." "Yellow"; Write-Host "`n"; winget install Google.Chrome -e --accept-source-agreements --accept-package-agreements; Pause-Menu }
+                            '2' { Show-Header; Write-Centered "Instalando AnyDesk..." "Yellow"; Write-Host "`n"; winget install AnyDesk.AnyDesk -e --accept-source-agreements --accept-package-agreements; Pause-Menu }
+                            '3' { Show-Header; Write-Centered "Instalando 7-Zip..." "Yellow"; Write-Host "`n"; winget install 7zip.7zip -e --accept-source-agreements --accept-package-agreements; Pause-Menu }
+                            '4' { Show-Header; Write-Centered "Instalando Paquete Basico..." "Yellow"; Write-Host "`n"; foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --accept-source-agreements --accept-package-agreements}; Pause-Menu }
+                            '5' { Show-Header; Write-Centered "Instalando VLC..." "Yellow"; Write-Host "`n"; winget install VideoLAN.VLC -e --accept-source-agreements --accept-package-agreements; Pause-Menu }
+                            '6' { Show-Header; Write-Centered "Instalando Notepad++..." "Yellow"; Write-Host "`n"; winget install Notepad++.Notepad++ -e --accept-source-agreements --accept-package-agreements; Pause-Menu }
+                            '7' { Show-Header; Write-Centered "Instalando Adobe Reader..." "Yellow"; Write-Host "`n"; winget install Adobe.Acrobat.Reader.64-bit -e --accept-source-agreements --accept-package-agreements; Pause-Menu }
+                            '8' { Show-Header; Write-Centered "Instalando Zoom..." "Yellow"; Write-Host "`n"; winget install Zoom.Zoom -e --accept-source-agreements --accept-package-agreements; Pause-Menu }
                             '0' { $subSoft = $false }
                         }
                     }
                 }
                 '2' { 
-                    Write-Centered "Buscando y aplicando actualizaciones a programas instalados..." "Cyan"
-                    winget upgrade --all --include-unknown --silent --accept-source-agreements
-                    Write-Centered "Actualizacion global finalizada." "Green"
+                    Show-Header; Write-Centered "--- ACTUALIZADOR GLOBAL WINGET ---" "Yellow"; Write-Host "`n"
+                    winget upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements
+                    Write-Host "`n"; Write-Centered "Actualizacion global finalizada." "Green"
                     Pause-Menu
                 }
-                '3' { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
+                '3' { Show-Header; Write-Centered "--- APLICACIONES DE INICIO ---" "Cyan"; Write-Host "`n"; Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
                 '4' { 
-                    Write-Centered "A. Activar Modo Seguro | B. Desactivar (Normal)" "Yellow"
+                    Show-Header; Write-Centered "A. Activar Modo Seguro | B. Desactivar (Normal)" "Yellow"
                     $sm = Get-KeyPress
                     if ($sm -eq 'A') { bcdedit /set "{current}" safeboot minimal | Out-Null; Write-Centered "Modo Seguro ACTIVADO. Reinicie." "Green" }
                     if ($sm -eq 'B') { bcdedit /deletevalue "{current}" safeboot | Out-Null; Write-Centered "Modo Seguro DESACTIVADO. Reinicie." "Green" }
@@ -369,20 +398,23 @@ $menus = @{
             $op = Get-KeyPress
             switch($op) {
                 '1' { 
+                    Show-Header
                     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force -ErrorAction SilentlyContinue
                     Write-Centered "Inicio Rapido DESHABILITADO. Apagados limpios activados." "Green"; Pause-Menu 
                 }
                 '2' { 
+                    Show-Header
                     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force -ErrorAction SilentlyContinue
                     Write-Centered "Inicio Rapido HABILITADO." "Green"; Pause-Menu 
                 }
                 '3' { 
+                    Show-Header
                     $path = "$env:USERPROFILE\Desktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"
                     if (-not (Test-Path $path)) { 
                         New-Item -ItemType Directory -Path $path | Out-Null
                         Write-Centered "Carpeta 'God Mode' creada en el Escritorio." "Green" 
                     } else { 
-                        Write-Centered "La carpeta 'God Mode' ya existe en el Escritorio." "Cyan" 
+                        Write-Centered "La carpeta 'God Mode' ya existe en el Escritorio." "White" 
                     }
                     Pause-Menu 
                 }
