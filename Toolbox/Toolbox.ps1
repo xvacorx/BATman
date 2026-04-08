@@ -1,12 +1,12 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V8.0 Singularity Build)
+# TOOLBOX TECNICO PRO - By Viktor (V9.0 Architect's Cut)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
-# --- 0. PROTOCOLOS DE SEGURIDAD (VITAL PARA WIN 7 / WIN 10 ANTIGUOS) ---
+# --- 0. PROTOCOLOS Y SEGURIDAD ---
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# --- 1. ELEVACION INTELIGENTE ---
+# --- 1. ELEVACION INTELIGENTE Y FOCO DE VENTANA ---
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     if ($PSCommandPath) {
@@ -16,6 +16,10 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
     }
     exit
 }
+
+# Forzar foco en la ventana (Saltar al frente)
+[void][System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic')
+[Microsoft.VisualBasic.Interaction]::AppActivate($PID)
 
 # --- 2. CONFIGURACION DE VENTANA ANTI-CRASH ---
 if ($Host.Name -eq "ConsoleHost") {
@@ -82,7 +86,6 @@ function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$
     }
 }
 
-# Motor Anti-Firewall para detectar Internet
 function Test-Internet {
     if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) { return $true }
     try {
@@ -244,11 +247,11 @@ $menus = @{
                 Write-Centered "OK" "Green"; Write-Host "`n"
                 
                 $reportPath = "$PublicDesktop\Reporte_Mantenimiento.txt"
-                "=== REPORTE DE MANTENIMIENTO ===" | Out-File -FilePath $reportPath
-                "Toolbox by Viktor" | Out-File -FilePath $reportPath -Append
-                "Fecha: $(Get-Date -Format 'dd/MM/yyyy a las HH:mm:ss')" | Out-File -FilePath $reportPath -Append
-                "--------------------------------" | Out-File -FilePath $reportPath -Append
-                "El equipo ha sido optimizado exitosamente. Se recomienda reiniciar." | Out-File -FilePath $reportPath -Append
+                "=== REPORTE DE MANTENIMIENTO ===" | Out-File -FilePath $reportPath -Encoding UTF8
+                "Toolbox by Viktor" | Out-File -FilePath $reportPath -Append -Encoding UTF8
+                "Fecha: $(Get-Date -Format 'dd/MM/yyyy a las HH:mm:ss')" | Out-File -FilePath $reportPath -Append -Encoding UTF8
+                "--------------------------------" | Out-File -FilePath $reportPath -Append -Encoding UTF8
+                "El equipo ha sido optimizado exitosamente. Se recomienda reiniciar." | Out-File -FilePath $reportPath -Append -Encoding UTF8
                 
                 Write-ToolboxLog "--- FIN DE MANTENIMIENTO AUTOMATICO ---"
                 Write-Centered ("-" * 80) "Gray"
@@ -291,6 +294,7 @@ $menus = @{
             switch($op) {
                 '1' { 
                     Show-Header; Write-Centered "--- RADIOGRAFIA DEL SISTEMA ---" "Cyan"; Write-Host "`n"
+                    $sysInfo = Get-WmiCim "Win32_ComputerSystem"
                     $serial = (Get-WmiCim "Win32_Bios").SerialNumber
                     $cpu = (Get-WmiCim "Win32_Processor").Name
                     $ramObj = Get-WmiCim "Win32_PhysicalMemory"
@@ -319,6 +323,7 @@ $menus = @{
                         if ($pct -lt 15) { $diskStr = "$free GB libres de $total GB [CRITICO]" } else { $diskStr = "$free GB libres de $total GB" }
                     } else { $diskStr = "No se pudo leer C:" }
 
+                    Write-Centered "Fabricante/Modelo: $($sysInfo.Manufacturer) $($sysInfo.Model)" "Yellow"
                     Write-Centered "Procesador (CPU): $cpu" "White"
                     Write-Centered "Memoria RAM: $ram GB" "White"
                     if ($diskStr -match "CRITICO") { Write-Centered "Almacenamiento (C:): $diskStr" "Red" } else { Write-Centered "Almacenamiento (C:): $diskStr" "White" }
@@ -361,14 +366,16 @@ $menus = @{
                 '6' {
                     Show-Header; Write-Centered "Generando TXT con inventario..." "Cyan"
                     $inv = "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt"
+                    $sysInfo = Get-WmiCim "Win32_ComputerSystem"
                     $ramObj = Get-WmiCim "Win32_PhysicalMemory"
                     if ($ramObj) { $ram = [Math]::Round(($ramObj | Measure-Object Capacity -Sum).Sum / 1GB) } else { $ram = "?" }
-                    "=== INVENTARIO DE EQUIPO ===" | Out-File $inv
-                    "Nombre de PC: $env:COMPUTERNAME" | Out-File $inv -Append
-                    "Usuario: $env:USERNAME" | Out-File $inv -Append
-                    "Sistema: $((Get-WmiCim Win32_OperatingSystem).Caption)" | Out-File $inv -Append
-                    "CPU: $((Get-WmiCim Win32_Processor).Name)" | Out-File $inv -Append
-                    "RAM: $ram GB" | Out-File $inv -Append
+                    "=== INVENTARIO DE EQUIPO ===" | Out-File $inv -Encoding UTF8
+                    "Nombre de PC: $env:COMPUTERNAME" | Out-File $inv -Append -Encoding UTF8
+                    "Fabricante/Modelo: $($sysInfo.Manufacturer) $($sysInfo.Model)" | Out-File $inv -Append -Encoding UTF8
+                    "Usuario: $env:USERNAME" | Out-File $inv -Append -Encoding UTF8
+                    "Sistema: $((Get-WmiCim Win32_OperatingSystem).Caption)" | Out-File $inv -Append -Encoding UTF8
+                    "CPU: $((Get-WmiCim Win32_Processor).Name)" | Out-File $inv -Append -Encoding UTF8
+                    "RAM: $ram GB" | Out-File $inv -Append -Encoding UTF8
                     Write-Centered "Inventario guardado en Escritorio publico." "Green"; Write-ToolboxLog "Inventario exportado."; Pause-Menu
                 }
                 '7' {
@@ -419,6 +426,7 @@ $menus = @{
                 '4' { 
                     Show-Header; Write-Centered "Vaciando cola de impresion..." "Cyan"
                     Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 2 # Evita error de archivo bloqueado
                     Remove-Item -Path "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue
                     Start-Service -Name Spooler -ErrorAction SilentlyContinue
                     Write-Centered "Cola vaciada." "Green"; Write-ToolboxLog "Cola de impresion vaciada."; Pause-Menu
@@ -441,6 +449,7 @@ $menus = @{
                 '8' { 
                     Show-Header; Write-Centered "Reseteando Windows Update..." "Red"
                     Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 2 # Evita error de archivo bloqueado en SoftwareDistribution
                     Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue
                     Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue
                     Write-Centered "Servicios reseteados y cache purgado." "Green"; Write-ToolboxLog "Hard Reset Windows Update."; Pause-Menu 
@@ -465,13 +474,13 @@ $menus = @{
                 '2' { 
                     Show-Header; Write-Centered "--- CLAVES WI-FI ---" "Cyan"; Write-Host "`n"
                     $wifiPath = "$PublicDesktop\Claves_WiFi.txt"
-                    "=== CLAVES WI-FI HISTORICAS ===" | Out-File $wifiPath
+                    "=== CLAVES WI-FI HISTORICAS ===" | Out-File $wifiPath -Encoding UTF8
                     
                     $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
                     foreach ($profile in $profiles) { 
                         $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
                         Write-Centered "$profile : $pass" "Green"
-                        "$profile : $pass" | Out-File $wifiPath -Append
+                        "$profile : $pass" | Out-File $wifiPath -Append -Encoding UTF8
                     }
                     Write-Host "`n"; Write-Centered "Archivo Claves_WiFi guardado en Escritorio publico." "Yellow"
                     Write-ToolboxLog "Claves Wi-Fi extraidas y exportadas."; Pause-Menu 
