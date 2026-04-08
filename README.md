@@ -1,3 +1,5 @@
+-----
+
 # 🦇 BATman: Your Command Line Utility Belt for Windows
 
 **A growing collection of free, open-source scripts to simplify Windows tasks, automate maintenance, and boost your daily productivity.**
@@ -13,12 +15,13 @@ Don't want to read? Run our ultimate All-In-One utility belt directly from your 
 Copy and paste this command:
 
 ```powershell
-iex (irm tinyurl.com/VikToolBox)
+iex (irm [tinyurl.com/VikToolBox](https://www.google.com/search?q=https://tinyurl.com/VikToolBox))
 ```
+
 or the usual
 
 ```powershell
-irm tinyurl.com/VikToolBox | iex
+irm [tinyurl.com/VikToolBox](https://www.google.com/search?q=https://tinyurl.com/VikToolBox) | iex
 ```
 
 *(If you prefer the portable `.bat` executable version, download it directly from the [Toolbox folder](https://github.com/xvacorx/BATman/tree/main/Toolbox)).*
@@ -57,7 +60,7 @@ If you want to use the individual scripts from the table above:
 2.  **Explore First:** Click "**Go to Folder**" to read the specific instructions for that script before downloading.
 3.  **Clone the Repo:** If you want the full collection and prefer to keep it updated:
 
-```powershell
+```bash
 git clone [https://github.com/xvacorx/BATman.git](https://github.com/xvacorx/BATman.git)
 ```
 
