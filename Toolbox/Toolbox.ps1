@@ -1,7 +1,10 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V6.0 Omega Build)
+# TOOLBOX TECNICO PRO - By Viktor (V7.0 Apex Build)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
+
+# --- 0. PROTOCOLOS DE SEGURIDAD (VITAL PARA WIN 7 / WIN 10 ANTIGUOS) ---
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # --- 1. ELEVACION INTELIGENTE ---
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -47,11 +50,8 @@ function Write-ToolboxLog([string]$action) {
         $logEntry = "[$timestamp] [ADMIN] - $action"
         $logEntry | Out-File -FilePath $logPath -Append -Encoding UTF8
         
-        # Rotacion de logs (Mantiene solo las ultimas 500 lineas)
         $logContent = Get-Content $logPath
-        if ($logContent.Count -gt 500) {
-            $logContent[-500..-1] | Set-Content $logPath -Encoding UTF8
-        }
+        if ($logContent.Count -gt 500) { $logContent[-500..-1] | Set-Content $logPath -Encoding UTF8 }
     } catch { }
 }
 
@@ -160,7 +160,12 @@ $Accion_Limpieza = {
     foreach ($i in $p) { Remove-Item $i -Recurse -Force -ErrorAction SilentlyContinue }
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "C:\`$Recycle.Bin\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Write-ToolboxLog "Ejecutada Limpieza de Sistema (Temp, Prefetch, Papelera)."
+    
+    # Optimizador de Medio (TRIM para SSDs)
+    if (Get-Command Optimize-Volume -ErrorAction SilentlyContinue) {
+        Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue | Out-Null
+    }
+    Write-ToolboxLog "Ejecutada Limpieza de Sistema (Temp, Prefetch, Papelera, TRIM)."
 }
 
 $Accion_Reparacion = { 
@@ -196,8 +201,9 @@ $menus = @{
             Write-Host "`n"
             Write-Centered "0. RESPALDO: Crea Punto de Restauracion automatico." "White"
             Write-Centered "1. ELIMINACION: Archivos Temporales, Cache, Prefetch y Papelera." "White"
-            Write-Centered "2. REPARACION: Escaneo SFC y DISM (Requiere Internet)." "White"
-            Write-Centered "3. REDES: Reset de IP, DNS y Winsock (Causara un micro-corte)." "White"
+            Write-Centered "2. OPTIMIZACION: Ejecuta comando TRIM en discos solidos (SSD)." "White"
+            Write-Centered "3. REPARACION: Escaneo SFC y DISM (Requiere Internet)." "White"
+            Write-Centered "4. REDES: Reset de IP, DNS y Winsock (Causara un micro-corte)." "White"
             Write-Host "`n"
             Write-Centered " 1. Ejecutar y Volver al Menu " "Yellow"
             Write-Centered " 2. Ejecutar y CERRAR Toolbox " "Red"
@@ -215,7 +221,7 @@ $menus = @{
                 Checkpoint-Computer -Description "Toolbox_Viktor_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
                 Write-Centered "OK" "Green"; Write-Host "`n"
 
-                Write-Centered "[ Paso 1 de 3 ] Limpiando basura del sistema y papelera..." "Yellow"
+                Write-Centered "[ Paso 1 de 3 ] Limpiando basura, papelera y optimizando SSD..." "Yellow"
                 &$Accion_Limpieza
                 Write-Centered "OK" "Green"; Write-Host "`n"
 
@@ -286,7 +292,7 @@ $menus = @{
                         if ($bootTime.GetType().Name -eq "String") { $bootTime = $os.ConvertToDateTime($bootTime) }
                         $timespan = New-TimeSpan -Start $bootTime -End (Get-Date)
                         $uptimeStr = "$($timespan.Days) Dias, $($timespan.Hours) Horas, $($timespan.Minutes) Minutos"
-                        # Semáforo de Fatiga
+                        
                         if ($timespan.Days -ge 30) { $uptimeColor = "Red" }
                         elseif ($timespan.Days -ge 15) { $uptimeColor = "Yellow" }
                         else { $uptimeColor = "Green" }
@@ -450,9 +456,10 @@ $menus = @{
                     $wifiPath = "$PublicDesktop\Claves_WiFi.txt"
                     "=== CLAVES WI-FI HISTORICAS ===" | Out-File $wifiPath
                     
+                    # Soporte multi-idioma (Busca "Key Content" o "Contenido de la clave")
                     $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
                     foreach ($profile in $profiles) { 
-                        $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
+                        $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
                         Write-Centered "$profile : $pass" "Green"
                         "$profile : $pass" | Out-File $wifiPath -Append
                     }
@@ -467,7 +474,7 @@ $menus = @{
                     if (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue) {
                         Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed
                     } else {
-                        Get-WmiObject Win32_NetworkAdapter | Where-Object NetConnectionStatus -eq 2 | Format-Table Name, MACAddress, Speed
+                        Get-WmiCim Win32_NetworkAdapter | Where-Object NetConnectionStatus -eq 2 | Format-Table Name, MACAddress, Speed
                     }
                     Pause-Menu
                 }
@@ -487,7 +494,7 @@ $menus = @{
             
             $op = Get-KeyPress
             switch($op) {
-                '1' { Show-Header; &$Accion_Limpieza; Write-Centered "Basura eliminada." "Green"; Pause-Menu }
+                '1' { Show-Header; &$Accion_Limpieza; Write-Centered "Basura eliminada y disco optimizado." "Green"; Pause-Menu }
                 '2' { 
                     Show-Header; Write-Centered "Borrando historial de eventos del sistema..." "Red"
                     wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
