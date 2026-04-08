@@ -8,7 +8,7 @@ Whether you're a Field Support Analyst handling infrastructure, an IT profession
 
 ## 🚀 Quick Start: Toolbox Tecnico Pro (Flagship Tool)
 
-Don't want to read? Run my ultimate All-In-One utility belt directly from your PowerShell terminal (Run as Administrator). 
+Don't want to read? Run my ultimate All-In-One utility belt directly from your PowerShell terminal. 
 
 Copy and paste this command:
 
