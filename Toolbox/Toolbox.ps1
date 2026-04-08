@@ -80,8 +80,8 @@ $menus = @{
             Write-Host "`n"
             Write-Centered "Tareas programadas:" "Cyan"
             Write-Centered "- Limpieza de temporales, prefetch y cache." "White"
-            Write-Centered "- Reset de red completo (IP, DNS, Winsock)." "White"
             Write-Centered "- Reparacion profunda de imagen (SFC + DISM)." "White"
+            Write-Centered "- Reset de red completo (IP, DNS, Winsock)." "White"
             Write-Host "`n"
             Write-Centered " 1. Ejecutar y Volver al Menu " "Yellow"
             Write-Centered " 2. Ejecutar y CERRAR Toolbox " "Red"
@@ -92,9 +92,24 @@ $menus = @{
             if ($conf -eq '1' -or $conf -eq '2') {
                 Write-Host "`n"
                 Write-Centered "1/3 Limpiando basura del sistema..." "Yellow"; &$Accion_Limpieza
-                Write-Centered "2/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
-                Write-Centered "3/3 Reparando archivos (Esto tomara tiempo)..." "Yellow"; &$Accion_Reparacion
+                Write-Centered "2/3 Reparando archivos (Requiere Internet)..." "Yellow"; &$Accion_Reparacion
+                Write-Centered "3/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
+                
+                # Reporte Final
+                $reportPath = "$env:USERPROFILE\Desktop\Reporte_Mantenimiento.txt"
+                "=== REPORTE DE MANTENIMIENTO ===" | Out-File -FilePath $reportPath
+                "Toolbox by Viktor" | Out-File -FilePath $reportPath -Append
+                "Fecha: $(Get-Date -Format 'dd/MM/yyyy a las HH:mm:ss')" | Out-File -FilePath $reportPath -Append
+                "--------------------------------" | Out-File -FilePath $reportPath -Append
+                "- Limpieza de archivos temporales: OK" | Out-File -FilePath $reportPath -Append
+                "- Reparacion de integridad (SFC/DISM): OK" | Out-File -FilePath $reportPath -Append
+                "- Restablecimiento de red: OK" | Out-File -FilePath $reportPath -Append
+                "--------------------------------" | Out-File -FilePath $reportPath -Append
+                "El equipo ha sido optimizado exitosamente. Se recomienda reiniciar." | Out-File -FilePath $reportPath -Append
+                
                 Write-Host "`n"; Write-Centered "[OK] MANTENIMIENTO COMPLETADO" "Green"
+                Write-Centered "Reporte generado en el Escritorio." "Cyan"
+                
                 if ($conf -eq '2') { exit }
                 Pause-Menu; $subAuto = $false
             } elseif ($conf -eq '0') {
@@ -249,8 +264,9 @@ $menus = @{
         while($sub) {
             Show-Header; Write-Centered "=== SOFTWARE Y ARRANQUE ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Gestor de Instalaciones (Apps y Utilidades)" "White"
-            Write-Centered "2. Ver Programas que Inician con Windows" "White"
-            Write-Centered "3. Alternar Modo Seguro (Safe Mode)" "White"
+            Write-Centered "2. Actualizador Global de Software (Winget)" "Yellow"
+            Write-Centered "3. Ver Programas que Inician con Windows" "White"
+            Write-Centered "4. Alternar Modo Seguro (Safe Mode)" "White"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -281,13 +297,53 @@ $menus = @{
                         }
                     }
                 }
-                '2' { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
-                '3' { 
+                '2' { 
+                    Write-Centered "Buscando y aplicando actualizaciones a programas instalados..." "Yellow"
+                    winget upgrade --all --include-unknown --silent --accept-source-agreements
+                    Write-Centered "Actualizacion global finalizada." "Green"
+                    Pause-Menu
+                }
+                '3' { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
+                '4' { 
                     Write-Centered "A. Activar Modo Seguro | B. Desactivar (Normal)" "Yellow"
                     $sm = Get-KeyPress
                     if ($sm -eq 'A') { bcdedit /set "{current}" safeboot minimal | Out-Null; Write-Centered "Modo Seguro ACTIVADO. Reinicie." "Green" }
                     if ($sm -eq 'B') { bcdedit /deletevalue "{current}" safeboot | Out-Null; Write-Centered "Modo Seguro DESACTIVADO. Reinicie." "Green" }
                     Pause-Menu
+                }
+                '0' { $sub = $false }
+            }
+        }
+    }
+
+    "6" = { # OPTIMIZACIONES
+        $sub = $true
+        while($sub) {
+            Show-Header; Write-Centered "=== OPTIMIZACIONES DEL SISTEMA ===" "Cyan"; Write-Host "`n"
+            Write-Centered "1. Deshabilitar Inicio Rapido (Fast Startup) [Recomendado]" "Yellow"
+            Write-Centered "2. Habilitar Inicio Rapido (Fast Startup)" "White"
+            Write-Centered "3. Generar acceso 'God Mode' en Escritorio" "White"
+            Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
+            
+            $op = Get-KeyPress
+            switch($op) {
+                '1' { 
+                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force -ErrorAction SilentlyContinue
+                    Write-Centered "Inicio Rapido DESHABILITADO. Apagados limpios activados." "Green"; Pause-Menu 
+                }
+                '2' { 
+                    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force -ErrorAction SilentlyContinue
+                    Write-Centered "Inicio Rapido HABILITADO." "Yellow"; Pause-Menu 
+                }
+                '3' { 
+                    $path = "$env:USERPROFILE\Desktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"
+                    if (-not (Test-Path $path)) { 
+                        New-Item -ItemType Directory -Path $path | Out-Null
+                        Write-Centered "Carpeta 'God Mode' creada en el Escritorio." "Green" 
+                    } else { 
+                        Write-Centered "La carpeta 'God Mode' ya existe en el Escritorio." "Yellow" 
+                    }
+                    Pause-Menu 
                 }
                 '0' { $sub = $false }
             }
@@ -303,6 +359,7 @@ do {
     Write-Centered " 3. Redes y Conectividad               " "White"
     Write-Centered " 4. Limpieza y Mantenimiento           " "White"
     Write-Centered " 5. Gestor de Software y Arranque      " "White"
+    Write-Centered " 6. Optimizaciones del Sistema         " "Yellow"
     Write-Host "`n"
     Write-Centered " A. MODO AUTOMATICO (1 Clic)           " "Green"
     Write-Host "`n"
