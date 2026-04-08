@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V7.0 Apex Build)
+# TOOLBOX TECNICO PRO - By Viktor (V8.0 Singularity Build)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
@@ -82,6 +82,16 @@ function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$
     }
 }
 
+# Motor Anti-Firewall para detectar Internet
+function Test-Internet {
+    if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) { return $true }
+    try {
+        $req = Invoke-WebRequest -Uri "http://www.msftconnecttest.com/connecttest.txt" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+        if ($req.Content -match "Microsoft Connect Test") { return $true }
+    } catch { }
+    return $false
+}
+
 function Check-RebootPending {
     $r1 = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending"
     $r2 = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
@@ -161,7 +171,6 @@ $Accion_Limpieza = {
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "C:\`$Recycle.Bin\*" -Recurse -Force -ErrorAction SilentlyContinue
     
-    # Optimizador de Medio (TRIM para SSDs)
     if (Get-Command Optimize-Volume -ErrorAction SilentlyContinue) {
         Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue | Out-Null
     }
@@ -170,7 +179,7 @@ $Accion_Limpieza = {
 
 $Accion_Reparacion = { 
     Write-Host "`n"
-    if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+    if (Test-Internet) {
         Write-Centered "--- REPARANDO IMAGEN DEL SISTEMA (DISM) ---" "Yellow"
         dism /online /cleanup-image /restorehealth
         Write-Host "`n"
@@ -217,7 +226,8 @@ $menus = @{
                 Write-Host "`n"
                 Write-ToolboxLog "--- INICIO DE MANTENIMIENTO AUTOMATICO ---"
                 
-                Write-Centered "[ Paso 0 de 3 ] Creando Punto de Restauracion..." "Yellow"
+                Write-Centered "[ Paso 0 de 3 ] Forzando y Creando Punto de Restauracion..." "Yellow"
+                Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
                 Checkpoint-Computer -Description "Toolbox_Viktor_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
                 Write-Centered "OK" "Green"; Write-Host "`n"
 
@@ -401,7 +411,8 @@ $menus = @{
                     Pause-Menu
                 }
                 '3' { 
-                    Show-Header; Write-Centered "Creando Punto de Restauracion del Sistema..." "Cyan"; Write-Host "`n"
+                    Show-Header; Write-Centered "Habilitando proteccion y creando Punto de Restauracion..." "Cyan"; Write-Host "`n"
+                    Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
                     Checkpoint-Computer -Description "Toolbox_Viktor_Respaldo" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
                     Write-Centered "Punto de Restauracion Creado." "Green"; Write-ToolboxLog "Punto de Restauracion manual creado."; Pause-Menu 
                 }
@@ -456,7 +467,6 @@ $menus = @{
                     $wifiPath = "$PublicDesktop\Claves_WiFi.txt"
                     "=== CLAVES WI-FI HISTORICAS ===" | Out-File $wifiPath
                     
-                    # Soporte multi-idioma (Busca "Key Content" o "Contenido de la clave")
                     $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
                     foreach ($profile in $profiles) { 
                         $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
@@ -468,8 +478,9 @@ $menus = @{
                 }
                 '3' { 
                     Show-Header; Write-Centered "--- TEST DE CONECTIVIDAD ---" "Cyan"; Write-Host "`n"
-                    Write-Centered "Testeando ping a Google (8.8.8.8)..." "Yellow"
-                    Test-Connection -ComputerName 8.8.8.8 -Count 4 -ErrorAction SilentlyContinue | Format-Table Address, ResponseTime
+                    Write-Centered "Testeando conexion a Internet..." "Yellow"
+                    if (Test-Internet) { Write-Centered "[OK] Internet Detectado." "Green" } else { Write-Centered "[X] Sin Internet o bloqueado por Firewall." "Red" }
+                    Write-Host ""
                     Write-Centered "Adaptadores Activos:" "Yellow"
                     if (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue) {
                         Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed
@@ -554,7 +565,7 @@ $menus = @{
                 '2' { 
                     Show-Header; Write-Centered "--- ACTUALIZADOR GLOBAL WINGET ---" "Yellow"; Write-Host "`n"
                     if (-not (Test-Winget)) { Pause-Menu; break }
-                    if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+                    if (Test-Internet) {
                         winget upgrade --all --include-unknown --disable-interactivity --accept-source-agreements --accept-package-agreements
                         Write-Host "`n"; Write-Centered "Actualizacion global finalizada." "Green"
                         Write-ToolboxLog "Ejecutada actualizacion global de Winget."
