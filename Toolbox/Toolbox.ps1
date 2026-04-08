@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V2.1 Ultra-Estable)
+# TOOLBOX TECNICO PRO - By Viktor (V2.2 Platinum Master)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
@@ -7,10 +7,8 @@
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     if ($PSCommandPath) {
-        # Ejecucion desde archivo local (USB)
         Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     } else {
-        # Ejecucion desde web (irm)
         Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm tinyurl.com/VikToolBox)`""
     }
     exit
@@ -23,13 +21,11 @@ if ($Host.Name -eq "ConsoleHost") {
         $Raw.BackgroundColor = "Black"
         $Raw.ForegroundColor = "White"
         
-        # Buffer más largo para evitar cortes
         $Buffer = $Raw.BufferSize
         $Buffer.Width = 110
         $Buffer.Height = 3000
         $Raw.BufferSize = $Buffer
 
-        # Intenta Widescreen, si la resolucion es baja, no crashea
         $Size = $Raw.WindowSize
         $Size.Width = [math]::Min(110, $Raw.MaxWindowSize.Width)
         $Size.Height = [math]::Min(38, $Raw.MaxWindowSize.Height)
@@ -53,10 +49,16 @@ function Write-ToolboxLog([string]$action) {
 function Write-Centered {
     param([string]$text, [string]$color = "White", [string]$bg = "Black")
     $width = [Console]::WindowWidth
-    if ($width -le 0) { $width = 110 } # Fallback de seguridad
+    if ($width -le 0) { $width = 110 }
     $padding = [math]::Max(0, [int](($width - $text.Length) / 2))
     Write-Host (" " * $padding) -NoNewline
     Write-Host $text -ForegroundColor $color -BackgroundColor $bg
+}
+
+function Check-RebootPending {
+    $r1 = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending"
+    $r2 = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
+    return ($r1 -or $r2)
 }
 
 function Show-Header {
@@ -72,6 +74,11 @@ function Show-Header {
     Write-Centered "              TOOLBOX TECNICO PRO - By Viktor              " "White" "Blue"
     Write-Centered ("=" * 80) "Gray"
     
+    if (Check-RebootPending) {
+        Write-Centered "[!] ATENCION: EL SISTEMA REQUIERE UN REINICIO PENDIENTE [!]" "Red"
+        Write-Host "`n"
+    }
+
     $legendText = "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Reset/Borrado]"
     $width = [Console]::WindowWidth
     if ($width -le 0) { $width = 110 }
@@ -90,15 +97,16 @@ function Show-Header {
 function Pause-Menu {
     Write-Host "`n"
     Write-Centered "Presione cualquier tecla para volver al menu..." "Gray"
+    $Host.UI.RawUI.FlushInputBuffer() # Limpia pulsaciones accidentales acumuladas
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
 function Get-KeyPress {
     Write-Host "`n"
     Write-Host (" " * 46) + "Opcion: " -ForegroundColor Gray -NoNewline
+    $Host.UI.RawUI.FlushInputBuffer() # Limpia pulsaciones accidentales
     while ($true) {
         $keyInfo = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        # Inmunidad: Solo acepta letras y numeros (ignora Shift, Ctrl, F1, flechas)
         if ($keyInfo.Character -match '[a-zA-Z0-9]') {
             $key = $keyInfo.Character.ToString().ToUpper()
             Write-Host $key -ForegroundColor Cyan
@@ -150,6 +158,7 @@ $menus = @{
             Write-Host "`n"
             Write-Centered "Esta herramienta desatendida realizara lo siguiente:" "Cyan"
             Write-Host "`n"
+            Write-Centered "0. RESPALDO: Crea Punto de Restauracion automatico." "White"
             Write-Centered "1. ELIMINACION: Archivos Temporales, Cache, Prefetch y Papelera." "White"
             Write-Centered "2. REPARACION: Escaneo SFC y DISM (Requiere Internet)." "White"
             Write-Centered "3. REDES: Reset de IP, DNS y Winsock (Causara un micro-corte)." "White"
@@ -166,6 +175,10 @@ $menus = @{
                 Write-Host "`n"
                 Write-ToolboxLog "--- INICIO DE MANTENIMIENTO AUTOMATICO ---"
                 
+                Write-Centered "[ Paso 0 de 3 ] Creando Punto de Restauracion..." "Yellow"
+                Checkpoint-Computer -Description "Toolbox_Viktor_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
+                Write-Centered "OK" "Green"; Write-Host "`n"
+
                 Write-Centered "[ Paso 1 de 3 ] Limpiando basura del sistema y papelera..." "Yellow"
                 &$Accion_Limpieza
                 Write-Centered "OK" "Green"; Write-Host "`n"
@@ -190,7 +203,7 @@ $menus = @{
                 Write-Centered "[OK] MANTENIMIENTO COMPLETADO CON EXITO" "Green"
                 Write-Centered "Reporte guardado en el Escritorio." "Cyan"
                 
-                if ($conf -eq '2') { exit }
+                if ($conf -eq '2') { [Console]::Clear(); exit }
                 Pause-Menu; $subAuto = $false
             } elseif ($conf -eq '0') {
                 $subAuto = $false
@@ -281,7 +294,7 @@ $menus = @{
             Show-Header; Write-Centered "=== REPARACION Y SOLUCION DE ERRORES ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Reparar Imagen de Windows (SFC + DISM)" "Yellow"
             Write-Centered "2. Programar Reparacion de Disco (CHKDSK)" "Yellow"
-            Write-Centered "3. Escaneo Rapido Antivirus (Windows Defender)" "Yellow"
+            Write-Centered "3. Crear Punto de Restauracion Manual" "Yellow"
             Write-Centered "4. Destrabar Cola de Impresion" "Yellow"
             Write-Centered "5. Reconstruir Cache de Iconos" "Yellow"
             Write-Centered "6. Alternar Administrador Oculto" "Yellow"
@@ -299,7 +312,11 @@ $menus = @{
                     if ($chk -eq 'B') { cmd.exe /c "echo S | chkdsk C: /f /r" | Out-Null; Write-Centered "Programado para reinicio." "Green"; Write-ToolboxLog "CHKDSK /f /r programado." }
                     Pause-Menu
                 }
-                '3' { Show-Header; Write-Centered "--- ESCANEO DE WINDOWS DEFENDER ---" "Yellow"; Write-Host "`n"; Start-MpScan -ScanType QuickScan; Write-Host "`n"; Write-Centered "Escaneo completado." "Green"; Write-ToolboxLog "Escaneo Defender ejecutado."; Pause-Menu }
+                '3' { 
+                    Show-Header; Write-Centered "Creando Punto de Restauracion del Sistema..." "Cyan"; Write-Host "`n"
+                    Checkpoint-Computer -Description "Toolbox_Viktor_Respaldo" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
+                    Write-Centered "Punto de Restauracion Creado." "Green"; Write-ToolboxLog "Punto de Restauracion manual creado."; Pause-Menu 
+                }
                 '4' { 
                     Show-Header; Write-Centered "Vaciando cola de impresion..." "Cyan"
                     Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue
@@ -538,3 +555,7 @@ do {
     $choice = Get-KeyPress
     if ($menus.ContainsKey($choice)) { & $menus[$choice] }
 } while ($choice -ne "0")
+
+# --- 7. CIERRE LIMPIO ---
+[Console]::Clear()
+exit
