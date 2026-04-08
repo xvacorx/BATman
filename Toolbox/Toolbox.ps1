@@ -47,7 +47,6 @@ function Show-Header {
     Write-Centered "              TOOLBOX TECNICO PRO - By Viktor              " "White" "Blue"
     Write-Centered "  =======================================================  " "Gray"
     
-    # Leyenda de colores multicolor centrada
     $legendText = "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Reset/Borrado]"
     $width = [Console]::WindowWidth
     $padding = [math]::Max(0, [int](($width - $legendText.Length) / 2))
@@ -76,10 +75,11 @@ function Get-KeyPress {
     return $key
 }
 
-# --- 4. ACCIONES MAESTRAS (SILENCIOSAS PARA AUTO-MODO) ---
+# --- 4. ACCIONES MAESTRAS ---
 $Accion_Limpieza = {
     $p = @("C:\Windows\Temp\*", "$env:TEMP\*", "C:\Windows\Prefetch\*")
     foreach ($i in $p) { Remove-Item $i -Recurse -Force -ErrorAction SilentlyContinue }
+    Clear-RecycleBin -Force -ErrorAction SilentlyContinue
 }
 $Accion_Reparacion = { dism /online /cleanup-image /restorehealth | Out-Null; sfc /scannow | Out-Null }
 $Accion_Red = { netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; ipconfig /flushdns | Out-Null }
@@ -92,7 +92,7 @@ $menus = @{
             Show-Header; Write-Centered "[!] MANTENIMIENTO AUTOMATICO..." "Green"
             Write-Host "`n"
             Write-Centered "Tareas programadas:" "Cyan"
-            Write-Centered "- Limpieza de temporales, prefetch y cache." "White"
+            Write-Centered "- Limpieza de temporales, prefetch, cache y papelera." "White"
             Write-Centered "- Reparacion profunda de imagen (SFC + DISM)." "White"
             Write-Centered "- Reset de red completo (IP, DNS, Winsock)." "White"
             Write-Host "`n"
@@ -108,13 +108,12 @@ $menus = @{
                 Write-Centered "2/3 Reparando archivos (Requiere Internet)..." "Yellow"; &$Accion_Reparacion
                 Write-Centered "3/3 Reseteando stack de red..." "Yellow"; &$Accion_Red
                 
-                # Reporte Final
                 $reportPath = "$env:USERPROFILE\Desktop\Reporte_Mantenimiento.txt"
                 "=== REPORTE DE MANTENIMIENTO ===" | Out-File -FilePath $reportPath
                 "Toolbox by Viktor" | Out-File -FilePath $reportPath -Append
                 "Fecha: $(Get-Date -Format 'dd/MM/yyyy a las HH:mm:ss')" | Out-File -FilePath $reportPath -Append
                 "--------------------------------" | Out-File -FilePath $reportPath -Append
-                "- Limpieza de archivos temporales: OK" | Out-File -FilePath $reportPath -Append
+                "- Limpieza y Papelera: OK" | Out-File -FilePath $reportPath -Append
                 "- Reparacion de integridad (SFC/DISM): OK" | Out-File -FilePath $reportPath -Append
                 "- Restablecimiento de red: OK" | Out-File -FilePath $reportPath -Append
                 "--------------------------------" | Out-File -FilePath $reportPath -Append
@@ -131,16 +130,11 @@ $menus = @{
         }
     }
     
-    "C" = { # CREDITOS
-        Show-Header
-        Write-Centered "=== CREDITOS ===" "Cyan"
-        Write-Host "`n"
+    "C" = { 
+        Show-Header; Write-Centered "=== CREDITOS ===" "Cyan"; Write-Host "`n"
         Write-Centered "Toolbox Tecnico Pro ha sido desarrollado por Viktor." "White"
-        Write-Host "`n"
-        Write-Centered "Repositorio Oficial:" "Gray"
-        Write-Centered "https://github.com/xvacorx" "Cyan"
-        Write-Host "`n"
-        Write-Centered "Abriendo navegador..." "Yellow"
+        Write-Host "`n"; Write-Centered "Repositorio Oficial:" "Gray"; Write-Centered "https://github.com/xvacorx" "Cyan"
+        Write-Host "`n"; Write-Centered "Abriendo navegador..." "Yellow"
         Start-Process "https://github.com/xvacorx"
         Pause-Menu
     }
@@ -154,6 +148,7 @@ $menus = @{
             Write-Centered "3. Ver Ultimos Pantallazos Azules (BSOD)" "White"
             Write-Centered "4. Ver Salud de Discos (S.M.A.R.T.)" "White"
             Write-Centered "5. Generar Reporte de Bateria (HTML)" "Yellow"
+            Write-Centered "6. Exportar Inventario de PC (TXT)" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -171,6 +166,18 @@ $menus = @{
                 '3' { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
                 '4' { Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "Cyan" }; Pause-Menu }
                 '5' { Write-Centered "Generando reporte..." "Cyan"; powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null; Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte guardado en Escritorio y abierto." "Green"; Pause-Menu }
+                '6' {
+                    Write-Centered "Generando TXT con inventario..." "Cyan"
+                    $inv = "$env:USERPROFILE\Desktop\Inventario_$env:COMPUTERNAME.txt"
+                    "=== INVENTARIO DE EQUIPO ===" | Out-File $inv
+                    "Nombre de PC: $env:COMPUTERNAME" | Out-File $inv -Append
+                    "Usuario Actual: $env:USERNAME" | Out-File $inv -Append
+                    "Sistema: $((Get-WmiObject Win32_OperatingSystem).Caption)" | Out-File $inv -Append
+                    "CPU: $((Get-WmiObject Win32_Processor).Name)" | Out-File $inv -Append
+                    "RAM: $([Math]::Round((Get-WmiObject Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB)) GB" | Out-File $inv -Append
+                    "Serial BIOS: $((Get-WmiObject Win32_Bios).SerialNumber)" | Out-File $inv -Append
+                    Write-Centered "Inventario guardado en el Escritorio." "Green"; Pause-Menu
+                }
                 '0' { $sub = $false }
             }
         }
@@ -182,11 +189,12 @@ $menus = @{
             Show-Header; Write-Centered "=== REPARACION Y SOLUCION DE ERRORES ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Reparar Imagen de Windows (SFC + DISM)" "Yellow"
             Write-Centered "2. Programar Reparacion de Disco (CHKDSK)" "Yellow"
-            Write-Centered "3. Hard Reset Windows Update" "Red"
+            Write-Centered "3. Escaneo Rapido Antivirus (Windows Defender)" "Yellow"
             Write-Centered "4. Destrabar Cola de Impresion" "Yellow"
             Write-Centered "5. Reconstruir Cache de Iconos" "Yellow"
             Write-Centered "6. Alternar Administrador Oculto" "Yellow"
             Write-Centered "7. Forzar Sincronizacion de Hora" "Yellow"
+            Write-Centered "8. Hard Reset Windows Update" "Red"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -200,10 +208,9 @@ $menus = @{
                     Pause-Menu
                 }
                 '3' { 
-                    Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue
-                    Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue
-                    Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue
-                    Write-Centered "Servicios de Update reseteados." "Green"; Pause-Menu 
+                    Write-Centered "Iniciando escaneo rapido de Windows Defender..." "Cyan"
+                    Start-MpScan -ScanType QuickScan
+                    Write-Centered "Escaneo completado." "Green"; Pause-Menu 
                 }
                 '4' { 
                     Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue
@@ -230,6 +237,12 @@ $menus = @{
                     Restart-Service w32time -ErrorAction SilentlyContinue
                     w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "Green" }
                     Pause-Menu
+                }
+                '8' { 
+                    Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue
+                    Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue
+                    Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue
+                    Write-Centered "Servicios de Update reseteados." "Green"; Pause-Menu 
                 }
                 '0' { $sub = $false }
             }
@@ -269,7 +282,7 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== MANTENIMIENTO Y LIMPIEZA ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Borrar Archivos Temporales y Cache" "Yellow"
+            Write-Centered "1. Borrar Archivos Temporales, Cache y Papelera" "Yellow"
             Write-Centered "2. Purgar Visor de Eventos (Borrar Logs)" "Red"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
