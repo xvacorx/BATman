@@ -15,13 +15,13 @@ Don't want to read? Run our ultimate All-In-One utility belt directly from your 
 Copy and paste this command:
 
 ```powershell
-iex (irm [tinyurl.com/VikToolBox](https://www.google.com/search?q=https://tinyurl.com/VikToolBox))
+iex (irm tinyurl.com/VikToolBox)
 ```
 
 or the usual
 
 ```powershell
-irm [tinyurl.com/VikToolBox](https://www.google.com/search?q=https://tinyurl.com/VikToolBox) | iex
+irm tinyurl.com/VikToolBox | iex
 ```
 
 *(If you prefer the portable `.bat` executable version, download it directly from the [Toolbox folder](https://github.com/xvacorx/BATman/tree/main/Toolbox)).*
