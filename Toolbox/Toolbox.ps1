@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V4.0 Final Boss Edition)
+# TOOLBOX TECNICO PRO - By Viktor (V5.0 God Mode Edition)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
@@ -41,10 +41,12 @@ $logPath = "C:\Windows\Logs\Toolbox_Auditoria.log"
 $PublicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
 
 function Write-ToolboxLog([string]$action) {
-    if (-not (Test-Path "C:\Windows\Logs")) { New-Item -ItemType Directory -Path "C:\Windows\Logs" -Force | Out-Null }
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [ADMIN] - $action"
-    $logEntry | Out-File -FilePath $logPath -Append -Encoding UTF8
+    try {
+        if (-not (Test-Path "C:\Windows\Logs")) { New-Item -ItemType Directory -Path "C:\Windows\Logs" -Force | Out-Null }
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $logEntry = "[$timestamp] [ADMIN] - $action"
+        $logEntry | Out-File -FilePath $logPath -Append -Encoding UTF8
+    } catch { }
 }
 
 function Write-Centered {
@@ -54,6 +56,14 @@ function Write-Centered {
     $padding = [math]::Max(0, [int](($width - $text.Length) / 2))
     Write-Host (" " * $padding) -NoNewline
     Write-Host $text -ForegroundColor $color -BackgroundColor $bg
+}
+
+function Play-FinishBeep {
+    try {
+        [System.Console]::Beep(800, 150); Start-Sleep -Milliseconds 50
+        [System.Console]::Beep(1000, 150); Start-Sleep -Milliseconds 50
+        [System.Console]::Beep(1200, 400)
+    } catch { }
 }
 
 function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$Filter = "") {
@@ -109,20 +119,26 @@ function Show-Header {
 function Pause-Menu {
     Write-Host "`n"
     Write-Centered "Presione cualquier tecla para volver al menu..." "Gray"
-    $Host.UI.RawUI.FlushInputBuffer()
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
+    try { $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { Start-Sleep -Seconds 2 }
 }
 
 function Get-KeyPress {
     Write-Host "`n"
     Write-Host (" " * 46) + "Opcion: " -ForegroundColor Gray -NoNewline
-    $Host.UI.RawUI.FlushInputBuffer()
+    try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
     while ($true) {
-        $keyInfo = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        if ($keyInfo.Character -match '[a-zA-Z0-9]') {
-            $key = $keyInfo.Character.ToString().ToUpper()
-            Write-Host $key -ForegroundColor Cyan
-            return $key
+        try {
+            $keyInfo = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            if ($keyInfo.Character -match '[a-zA-Z0-9]') {
+                $key = $keyInfo.Character.ToString().ToUpper()
+                Write-Host $key -ForegroundColor Cyan
+                return $key
+            }
+        } catch {
+            # Fallback si falla ReadKey en un emulador raro
+            $key = Read-Host
+            return $key.ToUpper()
         }
     }
 }
@@ -137,11 +153,8 @@ function Test-Winget {
 $Accion_Limpieza = {
     $p = @("C:\Windows\Temp\*", "$env:TEMP\*", "C:\Windows\Prefetch\*")
     foreach ($i in $p) { Remove-Item $i -Recurse -Force -ErrorAction SilentlyContinue }
-    
-    # Motor de borrado de papelera (Moderno + Fallback para Win 7)
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "C:\`$Recycle.Bin\*" -Recurse -Force -ErrorAction SilentlyContinue
-    
     Write-ToolboxLog "Ejecutada Limpieza de Sistema (Temp, Prefetch, Papelera)."
 }
 
@@ -201,7 +214,7 @@ $menus = @{
                 &$Accion_Limpieza
                 Write-Centered "OK" "Green"; Write-Host "`n"
 
-                Write-Centered "[ Paso 2 de 3 ] Reparando archivos del SO..." "Yellow"
+                Write-Centered "[ Paso 2 de 3 ] Reparando archivos del SO (Aguarde)..." "Yellow"
                 &$Accion_Reparacion
                 Write-Host "`n"
 
@@ -220,6 +233,8 @@ $menus = @{
                 Write-Centered ("-" * 80) "Gray"
                 Write-Centered "[OK] MANTENIMIENTO COMPLETADO CON EXITO" "Green"
                 Write-Centered "Reporte guardado en el Escritorio publico." "Cyan"
+                
+                Play-FinishBeep # Aviso acustico de finalizacion
                 
                 if ($conf -eq '2') { [Console]::Clear(); exit }
                 Pause-Menu; $subAuto = $false
@@ -242,7 +257,7 @@ $menus = @{
         $sub = $true
         while($sub) {
             Show-Header; Write-Centered "=== DIAGNOSTICO E INFO DE SISTEMA ===" "Cyan"; Write-Host "`n"
-            Write-Centered "1. Resumen de Sistema (Hardware, Serial, Uptime, BitLocker)" "White"
+            Write-Centered "1. Resumen de Sistema (Hardware, Alerta de Disco, Uptime)" "White"
             Write-Centered "2. Estado de Licencia (Activacion real)" "White"
             Write-Centered "3. Ver Ultimos Pantallazos Azules (BSOD)" "White"
             Write-Centered "4. Ver Salud de Discos (S.M.A.R.T.)" "White"
@@ -271,8 +286,17 @@ $menus = @{
                     $bl = Get-WmiCim -Class "Win32_EncryptableVolume" -Namespace "Root\CIMv2\Security\MicrosoftVolumeEncryption" -Filter "DriveLetter='C:'"
                     if ($bl) { if ($bl.ProtectionStatus -eq 1) { $blStatus = "Cifrado (ACTIVADO)" } else { $blStatus = "Desencriptado (DESACTIVADO)" } } else { $blStatus = "No Detectado" }
 
+                    $diskC = Get-WmiCim "Win32_LogicalDisk" -Filter "DeviceID='C:'"
+                    if ($diskC) {
+                        $free = [math]::Round($diskC.FreeSpace / 1GB, 1)
+                        $total = [math]::Round($diskC.Size / 1GB, 1)
+                        $pct = [math]::Round(($free / $total) * 100, 1)
+                        if ($pct -lt 15) { $diskStr = "$free GB libres de $total GB [CRITICO]" } else { $diskStr = "$free GB libres de $total GB" }
+                    } else { $diskStr = "No se pudo leer C:" }
+
                     Write-Centered "Procesador (CPU): $cpu" "White"
                     Write-Centered "Memoria RAM: $ram GB" "White"
+                    if ($diskStr -match "CRITICO") { Write-Centered "Almacenamiento (C:): $diskStr" "Red" } else { Write-Centered "Almacenamiento (C:): $diskStr" "White" }
                     Write-Centered "Serial (BIOS): $serial" "White"
                     Write-Host "`n"
                     Write-Centered "Tiempo Encendido (Uptime): $uptimeStr" "Cyan"
@@ -339,7 +363,7 @@ $menus = @{
             
             $op = Get-KeyPress
             switch($op) {
-                '1' { Show-Header; &$Accion_Reparacion; Write-Host "`n"; Write-Centered "Listo." "Green"; Pause-Menu }
+                '1' { Show-Header; &$Accion_Reparacion; Play-FinishBeep; Write-Host "`n"; Write-Centered "Listo." "Green"; Pause-Menu }
                 '2' { 
                     Show-Header; Write-Centered "A. Escaneo Rapido (/f) | B. Profundo (/f /r)" "Yellow"
                     $chk = Get-KeyPress
@@ -484,14 +508,14 @@ $menus = @{
                         
                         $inst = Get-KeyPress
                         switch($inst) {
-                            '1' { Show-Header; Write-Centered "Instalando Chrome..." "Yellow"; Write-Host "`n"; winget install Google.Chrome -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Google Chrome."; Pause-Menu }
-                            '2' { Show-Header; Write-Centered "Instalando AnyDesk..." "Yellow"; Write-Host "`n"; winget install AnyDesk.AnyDesk -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado AnyDesk."; Pause-Menu }
-                            '3' { Show-Header; Write-Centered "Instalando 7-Zip..." "Yellow"; Write-Host "`n"; winget install 7zip.7zip -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado 7-Zip."; Pause-Menu }
-                            '4' { Show-Header; Write-Centered "Instalando Paquete Basico..." "Yellow"; Write-Host "`n"; foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --accept-source-agreements --accept-package-agreements}; Write-ToolboxLog "Instalado Paquete Basico Soft."; Pause-Menu }
-                            '5' { Show-Header; Write-Centered "Instalando VLC..." "Yellow"; Write-Host "`n"; winget install VideoLAN.VLC -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado VLC."; Pause-Menu }
-                            '6' { Show-Header; Write-Centered "Instalando Notepad++..." "Yellow"; Write-Host "`n"; winget install Notepad++.Notepad++ -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Notepad++."; Pause-Menu }
-                            '7' { Show-Header; Write-Centered "Instalando Adobe Reader..." "Yellow"; Write-Host "`n"; winget install Adobe.Acrobat.Reader.64-bit -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Adobe Reader."; Pause-Menu }
-                            '8' { Show-Header; Write-Centered "Instalando Zoom..." "Yellow"; Write-Host "`n"; winget install Zoom.Zoom -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Zoom."; Pause-Menu }
+                            '1' { Show-Header; Write-Centered "Instalando Chrome..." "Yellow"; Write-Host "`n"; winget install Google.Chrome -e --disable-interactivity --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Google Chrome."; Pause-Menu }
+                            '2' { Show-Header; Write-Centered "Instalando AnyDesk..." "Yellow"; Write-Host "`n"; winget install AnyDesk.AnyDesk -e --disable-interactivity --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado AnyDesk."; Pause-Menu }
+                            '3' { Show-Header; Write-Centered "Instalando 7-Zip..." "Yellow"; Write-Host "`n"; winget install 7zip.7zip -e --disable-interactivity --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado 7-Zip."; Pause-Menu }
+                            '4' { Show-Header; Write-Centered "Instalando Paquete Basico..." "Yellow"; Write-Host "`n"; foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --disable-interactivity --accept-source-agreements --accept-package-agreements}; Write-ToolboxLog "Instalado Paquete Basico Soft."; Pause-Menu }
+                            '5' { Show-Header; Write-Centered "Instalando VLC..." "Yellow"; Write-Host "`n"; winget install VideoLAN.VLC -e --disable-interactivity --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado VLC."; Pause-Menu }
+                            '6' { Show-Header; Write-Centered "Instalando Notepad++..." "Yellow"; Write-Host "`n"; winget install Notepad++.Notepad++ -e --disable-interactivity --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Notepad++."; Pause-Menu }
+                            '7' { Show-Header; Write-Centered "Instalando Adobe Reader..." "Yellow"; Write-Host "`n"; winget install Adobe.Acrobat.Reader.64-bit -e --disable-interactivity --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Adobe Reader."; Pause-Menu }
+                            '8' { Show-Header; Write-Centered "Instalando Zoom..." "Yellow"; Write-Host "`n"; winget install Zoom.Zoom -e --disable-interactivity --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Zoom."; Pause-Menu }
                             '0' { $subSoft = $false }
                         }
                     }
@@ -500,7 +524,7 @@ $menus = @{
                     Show-Header; Write-Centered "--- ACTUALIZADOR GLOBAL WINGET ---" "Yellow"; Write-Host "`n"
                     if (-not (Test-Winget)) { Pause-Menu; break }
                     if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) {
-                        winget upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements
+                        winget upgrade --all --include-unknown --disable-interactivity --accept-source-agreements --accept-package-agreements
                         Write-Host "`n"; Write-Centered "Actualizacion global finalizada." "Green"
                         Write-ToolboxLog "Ejecutada actualizacion global de Winget."
                     } else {
@@ -574,9 +598,9 @@ $menus = @{
                 '4' {
                     Show-Header; Write-Centered "--- DESINSTALANDO BLOATWARE ---" "Red"; Write-Host "`n"
                     if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) {
-                        Write-Centered "Limpiando aplicaciones preinstaladas (Bing, Xbox, Solitaire, etc)..." "Yellow"
                         $bloatware = @("*bing*", "*zune*", "*xboxapp*", "*gethelp*", "*getstarted*", "*solitaire*", "*people*", "*yourphone*", "*skypeapp*")
                         foreach ($app in $bloatware) {
+                            Write-Centered "-> Purgando paquete: $app" "Gray"
                             Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
                         }
                         Write-Host "`n"; Write-Centered "Limpieza de Bloatware finalizada." "Green"
