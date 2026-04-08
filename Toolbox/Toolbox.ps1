@@ -1,9 +1,9 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V2.2 Platinum Master)
+# TOOLBOX TECNICO PRO - By Viktor (V3.0 Omni-OS Edition)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
-# --- 1. ELEVACION INTELIGENTE (SOPORTA ONLINE Y OFFLINE) ---
+# --- 1. ELEVACION INTELIGENTE ---
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     if ($PSCommandPath) {
@@ -55,10 +55,22 @@ function Write-Centered {
     Write-Host $text -ForegroundColor $color -BackgroundColor $bg
 }
 
+# Motor Hibrido para soportar Windows 7 hasta Windows 11
+function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$Filter = "") {
+    try {
+        if ($Filter) { return Get-CimInstance -ClassName $Class -Namespace $Namespace -Filter $Filter -ErrorAction Stop }
+        else { return Get-CimInstance -ClassName $Class -Namespace $Namespace -ErrorAction Stop }
+    } catch {
+        if ($Filter) { return Get-WmiObject -Class $Class -Namespace $Namespace -Filter $Filter -ErrorAction SilentlyContinue }
+        else { return Get-WmiObject -Class $Class -Namespace $Namespace -ErrorAction SilentlyContinue }
+    }
+}
+
 function Check-RebootPending {
     $r1 = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending"
     $r2 = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
-    return ($r1 -or $r2)
+    $r3 = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name "PendingFileRenameOperations" -ErrorAction SilentlyContinue)
+    return ($r1 -or $r2 -or $null -ne $r3)
 }
 
 function Show-Header {
@@ -97,14 +109,14 @@ function Show-Header {
 function Pause-Menu {
     Write-Host "`n"
     Write-Centered "Presione cualquier tecla para volver al menu..." "Gray"
-    $Host.UI.RawUI.FlushInputBuffer() # Limpia pulsaciones accidentales acumuladas
+    $Host.UI.RawUI.FlushInputBuffer()
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
 function Get-KeyPress {
     Write-Host "`n"
     Write-Host (" " * 46) + "Opcion: " -ForegroundColor Gray -NoNewline
-    $Host.UI.RawUI.FlushInputBuffer() # Limpia pulsaciones accidentales
+    $Host.UI.RawUI.FlushInputBuffer()
     while ($true) {
         $keyInfo = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         if ($keyInfo.Character -match '[a-zA-Z0-9]') {
@@ -145,8 +157,10 @@ $Accion_Reparacion = {
 }
 
 $Accion_Red = { 
+    ipconfig /release | Out-Null
     netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; ipconfig /flushdns | Out-Null 
-    Write-ToolboxLog "Ejecutado Reset de Red (Winsock, IP, DNS)."
+    ipconfig /renew | Out-Null
+    Write-ToolboxLog "Ejecutado Reset de Red (Winsock, IP, DNS, Release/Renew)."
 }
 
 # --- 5. MENUS CATEGORIZADOS ---
@@ -237,14 +251,20 @@ $menus = @{
             switch($op) {
                 '1' { 
                     Show-Header; Write-Centered "--- RADIOGRAFIA DEL SISTEMA ---" "Cyan"; Write-Host "`n"
-                    $serial = (Get-WmiObject Win32_Bios).SerialNumber
-                    $cpu = (Get-WmiObject Win32_Processor).Name
-                    $ram = [Math]::Round((Get-WmiObject Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB)
-                    $os = Get-WmiObject Win32_OperatingSystem
-                    $uptime = $os.ConvertToDateTime($os.LastBootUpTime)
-                    $timespan = New-TimeSpan -Start $uptime -End (Get-Date)
-                    $uptimeStr = "$($timespan.Days) Dias, $($timespan.Hours) Horas, $($timespan.Minutes) Minutos"
-                    $bl = Get-WmiObject -Namespace "Root\CIMv2\Security\MicrosoftVolumeEncryption" -Class Win32_EncryptableVolume -Filter "DriveLetter='C:'" -ErrorAction SilentlyContinue
+                    $serial = (Get-WmiCim "Win32_Bios").SerialNumber
+                    $cpu = (Get-WmiCim "Win32_Processor").Name
+                    $ramObj = Get-WmiCim "Win32_PhysicalMemory"
+                    if ($ramObj) { $ram = [Math]::Round(($ramObj | Measure-Object Capacity -Sum).Sum / 1GB) } else { $ram = "?" }
+                    
+                    $os = Get-WmiCim "Win32_OperatingSystem"
+                    try {
+                        $bootTime = $os.LastBootUpTime
+                        if ($bootTime.GetType().Name -eq "String") { $bootTime = $os.ConvertToDateTime($bootTime) }
+                        $timespan = New-TimeSpan -Start $bootTime -End (Get-Date)
+                        $uptimeStr = "$($timespan.Days) Dias, $($timespan.Hours) Horas, $($timespan.Minutes) Minutos"
+                    } catch { $uptimeStr = "No se pudo calcular" }
+                    
+                    $bl = Get-WmiCim -Class "Win32_EncryptableVolume" -Namespace "Root\CIMv2\Security\MicrosoftVolumeEncryption" -Filter "DriveLetter='C:'"
                     if ($bl) { if ($bl.ProtectionStatus -eq 1) { $blStatus = "Cifrado (ACTIVADO)" } else { $blStatus = "Desencriptado (DESACTIVADO)" } } else { $blStatus = "No Detectado" }
 
                     Write-Centered "Procesador (CPU): $cpu" "White"
@@ -254,23 +274,35 @@ $menus = @{
                     Write-Centered "Tiempo Encendido (Uptime): $uptimeStr" "Cyan"
                     if($blStatus -match "ACTIVADO"){Write-Centered "Estado BitLocker (C:): $blStatus" "Red"}else{Write-Centered "Estado BitLocker (C:): $blStatus" "Green"}
                     
-                    $key = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
-                    if($key){ Write-Centered "Licencia OEM BIOS: $key" "Green" }
+                    $keyObj = Get-WmiCim "SoftwareLicensingService"
+                    if($keyObj -and $keyObj.OA3xOriginalProductKey){ Write-Centered "Licencia OEM BIOS: $($keyObj.OA3xOriginalProductKey)" "Green" }
                     Write-ToolboxLog "Consultado Resumen de Sistema."
                     Pause-Menu 
                 }
                 '2' { Show-Header; Write-Centered "--- ESTADO DE LICENCIA ---" "Cyan"; Write-Host "`n"; cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
                 '3' { Show-Header; Write-Centered "--- ULTIMOS 5 ERRORES CRITICOS ---" "Red"; Write-Host "`n"; Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List; Pause-Menu }
-                '4' { Show-Header; Write-Centered "--- SALUD DEL DISCO ---" "Cyan"; Write-Host "`n"; Get-WmiObject Win32_DiskDrive | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
-                '5' { Show-Header; Write-Centered "Generando reporte de bateria..." "Cyan"; powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null; Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte abierto." "Green"; Pause-Menu }
+                '4' { Show-Header; Write-Centered "--- SALUD DEL DISCO ---" "Cyan"; Write-Host "`n"; Get-WmiCim "Win32_DiskDrive" | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
+                '5' { 
+                    Show-Header; Write-Centered "Generando reporte de bateria..." "Cyan"
+                    powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null
+                    if (Test-Path "$env:USERPROFILE\Desktop\BatteryReport.html") {
+                        Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte abierto." "Green"
+                    } else {
+                        Write-Centered "[!] El sistema operativo no soporta esta funcion (Win 8+ requerido)." "Yellow"
+                    }
+                    Pause-Menu 
+                }
                 '6' {
                     Show-Header; Write-Centered "Generando TXT con inventario..." "Cyan"
                     $inv = "$env:USERPROFILE\Desktop\Inventario_$env:COMPUTERNAME.txt"
+                    $ramObj = Get-WmiCim "Win32_PhysicalMemory"
+                    if ($ramObj) { $ram = [Math]::Round(($ramObj | Measure-Object Capacity -Sum).Sum / 1GB) } else { $ram = "?" }
                     "=== INVENTARIO DE EQUIPO ===" | Out-File $inv
                     "Nombre de PC: $env:COMPUTERNAME" | Out-File $inv -Append
                     "Usuario: $env:USERNAME" | Out-File $inv -Append
-                    "CPU: $((Get-WmiObject Win32_Processor).Name)" | Out-File $inv -Append
-                    "RAM: $([Math]::Round((Get-WmiObject Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB)) GB" | Out-File $inv -Append
+                    "Sistema: $((Get-WmiCim Win32_OperatingSystem).Caption)" | Out-File $inv -Append
+                    "CPU: $((Get-WmiCim Win32_Processor).Name)" | Out-File $inv -Append
+                    "RAM: $ram GB" | Out-File $inv -Append
                     Write-Centered "Inventario guardado en Escritorio." "Green"; Write-ToolboxLog "Inventario exportado."; Pause-Menu
                 }
                 '7' {
@@ -362,7 +394,7 @@ $menus = @{
             
             $op = Get-KeyPress
             switch($op) {
-                '1' { Show-Header; &$Accion_Red; Write-Centered "Red reseteada." "Green"; Pause-Menu }
+                '1' { Show-Header; &$Accion_Red; Write-Centered "Red reseteada y Direccion IP renovada." "Green"; Pause-Menu }
                 '2' { 
                     Show-Header; Write-Centered "--- CLAVES WI-FI ---" "Cyan"; Write-Host "`n"
                     $wifiPath = "$env:USERPROFILE\Desktop\Claves_WiFi.txt"
@@ -382,7 +414,11 @@ $menus = @{
                     Write-Centered "Testeando ping a Google (8.8.8.8)..." "Yellow"
                     Test-Connection -ComputerName 8.8.8.8 -Count 4 -ErrorAction SilentlyContinue | Format-Table Address, ResponseTime
                     Write-Centered "Adaptadores Activos:" "Yellow"
-                    Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed
+                    if (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue) {
+                        Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed
+                    } else {
+                        Get-WmiObject Win32_NetworkAdapter | Where-Object NetConnectionStatus -eq 2 | Format-Table Name, MACAddress, Speed
+                    }
                     Pause-Menu
                 }
                 '0' { $sub = $false }
@@ -396,6 +432,7 @@ $menus = @{
             Show-Header; Write-Centered "=== MANTENIMIENTO Y LIMPIEZA ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Borrar Archivos Temporales, Cache y Papelera" "Yellow"
             Write-Centered "2. Purgar Visor de Eventos (Borra TODOS los Logs)" "Red"
+            Write-Centered "3. Limpieza Profunda de Windows Update (WinSxS)" "Red"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -405,6 +442,11 @@ $menus = @{
                     Show-Header; Write-Centered "Borrando historial de eventos del sistema..." "Red"
                     wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
                     Write-Centered "Logs de Windows completamente limpios." "Green"; Write-ToolboxLog "Purgado Visor de Eventos de Windows."; Pause-Menu
+                }
+                '3' {
+                    Show-Header; Write-Centered "Limpiando actualizaciones antiguas (Esto puede demorar)..." "Red"
+                    dism /online /cleanup-image /StartComponentCleanup | Out-Null
+                    Write-Centered "Carpeta WinSxS depurada. Gigabytes recuperados." "Green"; Write-ToolboxLog "Limpieza profunda WinSxS ejecutada."; Pause-Menu
                 }
                 '0' { $sub = $false }
             }
@@ -417,8 +459,9 @@ $menus = @{
             Show-Header; Write-Centered "=== SOFTWARE Y ARRANQUE ===" "Cyan"; Write-Host "`n"
             Write-Centered "1. Gestor de Instalaciones (Apps y Utilidades)" "White"
             Write-Centered "2. Actualizador Global de Software (Winget)" "Yellow"
-            Write-Centered "3. Ver Programas que Inician con Windows" "White"
-            Write-Centered "4. Alternar Modo Seguro (Safe Mode)" "Yellow"
+            Write-Centered "3. Escaneo Rapido Antivirus (Windows Defender)" "Yellow"
+            Write-Centered "4. Ver Programas que Inician con Windows" "White"
+            Write-Centered "5. Alternar Modo Seguro (Safe Mode)" "Yellow"
             Write-Host "`n"; Write-Centered "0. Volver al Menu Principal" "Gray"
             
             $op = Get-KeyPress
@@ -462,8 +505,18 @@ $menus = @{
                     }
                     Pause-Menu
                 }
-                '3' { Show-Header; Write-Centered "--- APLICACIONES DE INICIO ---" "Cyan"; Write-Host "`n"; Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
-                '4' { 
+                '3' { 
+                    Show-Header; Write-Centered "--- ESCANEO DE WINDOWS DEFENDER ---" "Yellow"; Write-Host "`n"
+                    if (Get-Command Start-MpScan -ErrorAction SilentlyContinue) {
+                        Start-MpScan -ScanType QuickScan; Write-Host "`n"; Write-Centered "Escaneo completado." "Green"
+                        Write-ToolboxLog "Escaneo Defender ejecutado."
+                    } else {
+                        Write-Centered "[!] Windows Defender nativo no detectado en esta version de SO." "Yellow"
+                    }
+                    Pause-Menu 
+                }
+                '4' { Show-Header; Write-Centered "--- APLICACIONES DE INICIO ---" "Cyan"; Write-Host "`n"; Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table; Pause-Menu }
+                '5' { 
                     Show-Header; Write-Centered "A. Activar Modo Seguro | B. Desactivar (Normal)" "Yellow"
                     $sm = Get-KeyPress
                     if ($sm -eq 'A') { bcdedit /set "{current}" safeboot minimal | Out-Null; Write-Centered "Modo Seguro ACTIVADO." "Green"; Write-ToolboxLog "Modo Seguro Activado." }
@@ -517,13 +570,17 @@ $menus = @{
                 }
                 '4' {
                     Show-Header; Write-Centered "--- DESINSTALANDO BLOATWARE ---" "Red"; Write-Host "`n"
-                    Write-Centered "Limpiando aplicaciones preinstaladas (Bing, Xbox, Solitaire, etc)..." "Yellow"
-                    $bloatware = @("*bing*", "*zune*", "*xboxapp*", "*gethelp*", "*getstarted*", "*solitaire*", "*people*", "*yourphone*", "*skypeapp*")
-                    foreach ($app in $bloatware) {
-                        Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+                    if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) {
+                        Write-Centered "Limpiando aplicaciones preinstaladas (Bing, Xbox, Solitaire, etc)..." "Yellow"
+                        $bloatware = @("*bing*", "*zune*", "*xboxapp*", "*gethelp*", "*getstarted*", "*solitaire*", "*people*", "*yourphone*", "*skypeapp*")
+                        foreach ($app in $bloatware) {
+                            Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+                        }
+                        Write-Host "`n"; Write-Centered "Limpieza de Bloatware finalizada." "Green"
+                        Write-ToolboxLog "Bloatware aniquilado exitosamente."
+                    } else {
+                        Write-Centered "[!] Tu version de Windows no usa paquetes Appx (No requiere limpieza)." "Yellow"
                     }
-                    Write-Host "`n"; Write-Centered "Limpieza de Bloatware finalizada." "Green"
-                    Write-ToolboxLog "Bloatware aniquilado exitosamente."
                     Pause-Menu
                 }
                 '5' { Start-Process control; Write-ToolboxLog "Abierto Panel de Control."; Write-Centered "Abriendo..." "Green"; Pause-Menu }
