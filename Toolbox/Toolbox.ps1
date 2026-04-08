@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V3.0 Omni-OS Edition)
+# TOOLBOX TECNICO PRO - By Viktor (V4.0 Final Boss Edition)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
@@ -37,12 +37,13 @@ if ($Host.Name -eq "ConsoleHost") {
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- 3. FUNCIONES GLOBALES E INTERFAZ ---
-$logPath = "C:\Windows\Logs\Toolbox_$env:USERNAME.log"
+$logPath = "C:\Windows\Logs\Toolbox_Auditoria.log"
+$PublicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
 
 function Write-ToolboxLog([string]$action) {
     if (-not (Test-Path "C:\Windows\Logs")) { New-Item -ItemType Directory -Path "C:\Windows\Logs" -Force | Out-Null }
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logEntry = "[$timestamp] [$env:USERNAME] - $action"
+    $logEntry = "[$timestamp] [ADMIN] - $action"
     $logEntry | Out-File -FilePath $logPath -Append -Encoding UTF8
 }
 
@@ -55,7 +56,6 @@ function Write-Centered {
     Write-Host $text -ForegroundColor $color -BackgroundColor $bg
 }
 
-# Motor Hibrido para soportar Windows 7 hasta Windows 11
 function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$Filter = "") {
     try {
         if ($Filter) { return Get-CimInstance -ClassName $Class -Namespace $Namespace -Filter $Filter -ErrorAction Stop }
@@ -137,7 +137,11 @@ function Test-Winget {
 $Accion_Limpieza = {
     $p = @("C:\Windows\Temp\*", "$env:TEMP\*", "C:\Windows\Prefetch\*")
     foreach ($i in $p) { Remove-Item $i -Recurse -Force -ErrorAction SilentlyContinue }
+    
+    # Motor de borrado de papelera (Moderno + Fallback para Win 7)
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "C:\`$Recycle.Bin\*" -Recurse -Force -ErrorAction SilentlyContinue
+    
     Write-ToolboxLog "Ejecutada Limpieza de Sistema (Temp, Prefetch, Papelera)."
 }
 
@@ -205,7 +209,7 @@ $menus = @{
                 &$Accion_Red
                 Write-Centered "OK" "Green"; Write-Host "`n"
                 
-                $reportPath = "$env:USERPROFILE\Desktop\Reporte_Mantenimiento.txt"
+                $reportPath = "$PublicDesktop\Reporte_Mantenimiento.txt"
                 "=== REPORTE DE MANTENIMIENTO ===" | Out-File -FilePath $reportPath
                 "Toolbox by Viktor" | Out-File -FilePath $reportPath -Append
                 "Fecha: $(Get-Date -Format 'dd/MM/yyyy a las HH:mm:ss')" | Out-File -FilePath $reportPath -Append
@@ -215,7 +219,7 @@ $menus = @{
                 Write-ToolboxLog "--- FIN DE MANTENIMIENTO AUTOMATICO ---"
                 Write-Centered ("-" * 80) "Gray"
                 Write-Centered "[OK] MANTENIMIENTO COMPLETADO CON EXITO" "Green"
-                Write-Centered "Reporte guardado en el Escritorio." "Cyan"
+                Write-Centered "Reporte guardado en el Escritorio publico." "Cyan"
                 
                 if ($conf -eq '2') { [Console]::Clear(); exit }
                 Pause-Menu; $subAuto = $false
@@ -284,9 +288,9 @@ $menus = @{
                 '4' { Show-Header; Write-Centered "--- SALUD DEL DISCO ---" "Cyan"; Write-Host "`n"; Get-WmiCim "Win32_DiskDrive" | Select-Object Model, Status | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" }; Pause-Menu }
                 '5' { 
                     Show-Header; Write-Centered "Generando reporte de bateria..." "Cyan"
-                    powercfg /batteryreport /output "$env:USERPROFILE\Desktop\BatteryReport.html" | Out-Null
-                    if (Test-Path "$env:USERPROFILE\Desktop\BatteryReport.html") {
-                        Invoke-Item "$env:USERPROFILE\Desktop\BatteryReport.html"; Write-Centered "Reporte abierto." "Green"
+                    powercfg /batteryreport /output "$PublicDesktop\BatteryReport.html" | Out-Null
+                    if (Test-Path "$PublicDesktop\BatteryReport.html") {
+                        Invoke-Item "$PublicDesktop\BatteryReport.html"; Write-Centered "Reporte abierto desde el Escritorio publico." "Green"
                     } else {
                         Write-Centered "[!] El sistema operativo no soporta esta funcion (Win 8+ requerido)." "Yellow"
                     }
@@ -294,16 +298,15 @@ $menus = @{
                 }
                 '6' {
                     Show-Header; Write-Centered "Generando TXT con inventario..." "Cyan"
-                    $inv = "$env:USERPROFILE\Desktop\Inventario_$env:COMPUTERNAME.txt"
+                    $inv = "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt"
                     $ramObj = Get-WmiCim "Win32_PhysicalMemory"
                     if ($ramObj) { $ram = [Math]::Round(($ramObj | Measure-Object Capacity -Sum).Sum / 1GB) } else { $ram = "?" }
                     "=== INVENTARIO DE EQUIPO ===" | Out-File $inv
                     "Nombre de PC: $env:COMPUTERNAME" | Out-File $inv -Append
-                    "Usuario: $env:USERNAME" | Out-File $inv -Append
                     "Sistema: $((Get-WmiCim Win32_OperatingSystem).Caption)" | Out-File $inv -Append
                     "CPU: $((Get-WmiCim Win32_Processor).Name)" | Out-File $inv -Append
                     "RAM: $ram GB" | Out-File $inv -Append
-                    Write-Centered "Inventario guardado en Escritorio." "Green"; Write-ToolboxLog "Inventario exportado."; Pause-Menu
+                    Write-Centered "Inventario guardado en Escritorio publico." "Green"; Write-ToolboxLog "Inventario exportado."; Pause-Menu
                 }
                 '7' {
                     Show-Header; Write-Centered "--- VISOR DE HISTORIAL DE TOOLBOX ---" "Cyan"; Write-Host "`n"
@@ -397,7 +400,7 @@ $menus = @{
                 '1' { Show-Header; &$Accion_Red; Write-Centered "Red reseteada y Direccion IP renovada." "Green"; Pause-Menu }
                 '2' { 
                     Show-Header; Write-Centered "--- CLAVES WI-FI ---" "Cyan"; Write-Host "`n"
-                    $wifiPath = "$env:USERPROFILE\Desktop\Claves_WiFi.txt"
+                    $wifiPath = "$PublicDesktop\Claves_WiFi.txt"
                     "=== CLAVES WI-FI HISTORICAS ===" | Out-File $wifiPath
                     
                     $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
@@ -406,7 +409,7 @@ $menus = @{
                         Write-Centered "$profile : $pass" "Green"
                         "$profile : $pass" | Out-File $wifiPath -Append
                     }
-                    Write-Host "`n"; Write-Centered "Archivo Claves_WiFi guardado en el Escritorio." "Yellow"
+                    Write-Host "`n"; Write-Centered "Archivo Claves_WiFi guardado en Escritorio publico." "Yellow"
                     Write-ToolboxLog "Claves Wi-Fi extraidas y exportadas."; Pause-Menu 
                 }
                 '3' { 
@@ -481,14 +484,14 @@ $menus = @{
                         
                         $inst = Get-KeyPress
                         switch($inst) {
-                            '1' { Show-Header; Write-Centered "Instalando Chrome..." "Yellow"; Write-Host "`n"; winget install Google.Chrome -e --accept-source-agreements; Write-ToolboxLog "Instalado Google Chrome."; Pause-Menu }
-                            '2' { Show-Header; Write-Centered "Instalando AnyDesk..." "Yellow"; Write-Host "`n"; winget install AnyDesk.AnyDesk -e --accept-source-agreements; Write-ToolboxLog "Instalado AnyDesk."; Pause-Menu }
-                            '3' { Show-Header; Write-Centered "Instalando 7-Zip..." "Yellow"; Write-Host "`n"; winget install 7zip.7zip -e --accept-source-agreements; Write-ToolboxLog "Instalado 7-Zip."; Pause-Menu }
-                            '4' { Show-Header; Write-Centered "Instalando Paquete Basico..." "Yellow"; Write-Host "`n"; foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --accept-source-agreements}; Write-ToolboxLog "Instalado Paquete Basico Soft."; Pause-Menu }
-                            '5' { Show-Header; Write-Centered "Instalando VLC..." "Yellow"; Write-Host "`n"; winget install VideoLAN.VLC -e --accept-source-agreements; Write-ToolboxLog "Instalado VLC."; Pause-Menu }
-                            '6' { Show-Header; Write-Centered "Instalando Notepad++..." "Yellow"; Write-Host "`n"; winget install Notepad++.Notepad++ -e --accept-source-agreements; Write-ToolboxLog "Instalado Notepad++."; Pause-Menu }
-                            '7' { Show-Header; Write-Centered "Instalando Adobe Reader..." "Yellow"; Write-Host "`n"; winget install Adobe.Acrobat.Reader.64-bit -e --accept-source-agreements; Write-ToolboxLog "Instalado Adobe Reader."; Pause-Menu }
-                            '8' { Show-Header; Write-Centered "Instalando Zoom..." "Yellow"; Write-Host "`n"; winget install Zoom.Zoom -e --accept-source-agreements; Write-ToolboxLog "Instalado Zoom."; Pause-Menu }
+                            '1' { Show-Header; Write-Centered "Instalando Chrome..." "Yellow"; Write-Host "`n"; winget install Google.Chrome -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Google Chrome."; Pause-Menu }
+                            '2' { Show-Header; Write-Centered "Instalando AnyDesk..." "Yellow"; Write-Host "`n"; winget install AnyDesk.AnyDesk -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado AnyDesk."; Pause-Menu }
+                            '3' { Show-Header; Write-Centered "Instalando 7-Zip..." "Yellow"; Write-Host "`n"; winget install 7zip.7zip -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado 7-Zip."; Pause-Menu }
+                            '4' { Show-Header; Write-Centered "Instalando Paquete Basico..." "Yellow"; Write-Host "`n"; foreach($a in @("Google.Chrome","AnyDesk.AnyDesk","7zip.7zip")){winget install $a -e --accept-source-agreements --accept-package-agreements}; Write-ToolboxLog "Instalado Paquete Basico Soft."; Pause-Menu }
+                            '5' { Show-Header; Write-Centered "Instalando VLC..." "Yellow"; Write-Host "`n"; winget install VideoLAN.VLC -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado VLC."; Pause-Menu }
+                            '6' { Show-Header; Write-Centered "Instalando Notepad++..." "Yellow"; Write-Host "`n"; winget install Notepad++.Notepad++ -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Notepad++."; Pause-Menu }
+                            '7' { Show-Header; Write-Centered "Instalando Adobe Reader..." "Yellow"; Write-Host "`n"; winget install Adobe.Acrobat.Reader.64-bit -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Adobe Reader."; Pause-Menu }
+                            '8' { Show-Header; Write-Centered "Instalando Zoom..." "Yellow"; Write-Host "`n"; winget install Zoom.Zoom -e --accept-source-agreements --accept-package-agreements; Write-ToolboxLog "Instalado Zoom."; Pause-Menu }
                             '0' { $subSoft = $false }
                         }
                     }
@@ -497,7 +500,7 @@ $menus = @{
                     Show-Header; Write-Centered "--- ACTUALIZADOR GLOBAL WINGET ---" "Yellow"; Write-Host "`n"
                     if (-not (Test-Winget)) { Pause-Menu; break }
                     if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) {
-                        winget upgrade --all --include-unknown --accept-source-agreements
+                        winget upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements
                         Write-Host "`n"; Write-Centered "Actualizacion global finalizada." "Green"
                         Write-ToolboxLog "Ejecutada actualizacion global de Winget."
                     } else {
@@ -560,12 +563,12 @@ $menus = @{
                 }
                 '3' { 
                     Show-Header
-                    $path = "$env:USERPROFILE\Desktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"
+                    $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"
                     if (-not (Test-Path $path)) { 
                         New-Item -ItemType Directory -Path $path | Out-Null
-                        Write-Centered "Carpeta 'God Mode' creada en el Escritorio." "Green" 
+                        Write-Centered "Carpeta 'God Mode' creada en Escritorio publico." "Green" 
                         Write-ToolboxLog "Acceso GodMode generado."
-                    } else { Write-Centered "La carpeta 'God Mode' ya existe en el Escritorio." "White" }
+                    } else { Write-Centered "La carpeta 'God Mode' ya existe." "White" }
                     Pause-Menu 
                 }
                 '4' {
