@@ -61,7 +61,7 @@ If you want to use the individual scripts from the table above:
 3.  **Clone the Repo:** If you want the full collection and prefer to keep it updated:
 
 ```bash
-git clone [https://github.com/xvacorx/BATman.git](https://github.com/xvacorx/BATman.git)
+git clone https://github.com/xvacorx/BATman.git
 ```
 
 **Important Note:** Most advanced scripts will automatically request administrative privileges if required. Always review the `README.md` file inside each specific folder.
