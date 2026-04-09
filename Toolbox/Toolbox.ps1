@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V10.1 Global Edition - FULL)
+# TOOLBOX TECNICO PRO - By Viktor (V10.2 Global Edition - FULL)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
@@ -18,6 +18,7 @@ $msg = @{
         'no_internet'= "[!] SIN CONEXION: Omitiendo reparacion DISM/SFC"
         'm_auto'     = "A. MODO AUTOMATICO"
         'm_lang'     = "L. CAMBIAR IDIOMA (ES/EN)"
+        'm_cred'     = "C. Creditos (GitHub)"
         'm_exit'     = "0. Salir"
         'm1' = "1. Diagnostico e Info de Sistema"
         'm2' = "2. Reparacion y Solucion de Errores"
@@ -35,6 +36,7 @@ $msg = @{
         'no_internet'= "[!] NO CONNECTION: Skipping DISM/SFC repair"
         'm_auto'     = "A. AUTOMATIC MODE"
         'm_lang'     = "L. CHANGE LANGUAGE (ES/EN)"
+        'm_cred'     = "C. Credits (GitHub)"
         'm_exit'     = "0. Exit"
         'm1' = "1. Diagnostics & System Info"
         'm2' = "2. Repair & Error Solutions"
@@ -363,15 +365,16 @@ $menus = @{
 # --- 7. BUCLE PRINCIPAL ---
 do {
     Show-Header
-    Write-Centered " 1. $($msg[$global:lang]['m1']) " "White"
-    Write-Centered " 2. $($msg[$global:lang]['m2']) " "White"
-    Write-Centered " 3. $($msg[$global:lang]['m3']) " "White"
-    Write-Centered " 4. $($msg[$global:lang]['m4']) " "White"
-    Write-Centered " 5. $($msg[$global:lang]['m5']) " "White"
-    Write-Centered " 6. $($msg[$global:lang]['m6']) " "White"
+    Write-Centered " $($msg[$global:lang]['m1']) " "White"
+    Write-Centered " $($msg[$global:lang]['m2']) " "White"
+    Write-Centered " $($msg[$global:lang]['m3']) " "White"
+    Write-Centered " $($msg[$global:lang]['m4']) " "White"
+    Write-Centered " $($msg[$global:lang]['m5']) " "White"
+    Write-Centered " $($msg[$global:lang]['m6']) " "White"
     Write-Host "`n"
     Write-Centered " $($msg[$global:lang]['m_auto']) " "Green"
     Write-Centered " $($msg[$global:lang]['m_lang']) " "Yellow"
+    Write-Centered " $($msg[$global:lang]['m_cred']) " "Cyan"
     Write-Host "`n"; Write-Centered ("-" * 80) "Gray"
     Write-Centered " $($msg[$global:lang]['m_exit']) " "Gray"
     
