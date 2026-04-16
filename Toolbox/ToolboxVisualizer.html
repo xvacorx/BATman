@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chroma Cat DTC - Direct-To-Console Designer</title>
+    <title>Chroma Cat IDE - Toolbox V11</title>
     <style>
         :root {
             --bg-main: #0a0a0e;
@@ -16,10 +16,11 @@
             --text-muted: #8888aa;
             --error: #ff3366;
             --success: #00ff9d;
+            --warning: #ffaa00;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             background-color: var(--bg-main);
             color: var(--text-main);
             margin: 0;
@@ -29,7 +30,7 @@
             overflow: hidden;
         }
 
-        /* --- TOP BAR --- */
+        /* TOP BAR */
         .topbar {
             background-color: var(--bg-panel);
             padding: 8px 20px;
@@ -37,7 +38,6 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid var(--accent-pink);
-            box-shadow: 0 4px 15px rgba(255, 0, 234, 0.1);
         }
 
         .brand {
@@ -55,7 +55,7 @@
 
         .toolbar {
             display: flex;
-            gap: 15px;
+            gap: 10px;
         }
 
         button,
@@ -67,8 +67,6 @@
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
-            transition: all 0.2s;
-            font-family: inherit;
             font-size: 0.85rem;
         }
 
@@ -78,12 +76,22 @@
             color: #000;
         }
 
-        .btn-export {
+        .btn-export-json {
+            border-color: var(--accent-pink);
+            color: var(--accent-pink);
+        }
+
+        .btn-export-json:hover {
+            background-color: var(--accent-pink);
+            color: #000;
+        }
+
+        .btn-export-ps1 {
             border-color: var(--success);
             color: var(--success);
         }
 
-        .btn-export:hover {
+        .btn-export-ps1:hover {
             background-color: var(--success);
             color: #000;
         }
@@ -92,7 +100,7 @@
             display: none;
         }
 
-        /* --- WORKSPACE --- */
+        /* WORKSPACE */
         .workspace {
             display: flex;
             flex: 1;
@@ -100,10 +108,10 @@
             width: 100%;
         }
 
-        /* --- CONSOLA SIMULADA (Izquierda) --- */
+        /* CONSOLA */
         .console-workspace {
             flex: 2;
-            padding: 10px 20px 20px 20px;
+            padding: 10px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -121,17 +129,16 @@
         }
 
         .console-container {
-            background-color: #000000;
+            background-color: #000;
             width: 100%;
             max-width: 900px;
             flex: 1;
             border: 2px solid #333;
             border-radius: 4px;
             padding: 20px;
-            font-family: 'Consolas', 'Courier New', monospace;
+            font-family: 'Consolas', monospace;
             font-size: 16px;
             overflow-y: auto;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
             position: relative;
         }
 
@@ -159,7 +166,7 @@
 
         .editable {
             cursor: pointer;
-            transition: background 0.2s, color 0.2s;
+            transition: background 0.2s;
         }
 
         .editable:hover {
@@ -167,7 +174,6 @@
             border-radius: 3px;
         }
 
-        /* Colores PS */
         .color-white {
             color: #ffffff;
         }
@@ -198,30 +204,60 @@
             padding: 0 10px;
         }
 
-        /* --- INSPECTOR (Centro) --- */
+        /* INSPECTOR (TABS) */
         .inspector {
             flex: 1;
             background-color: var(--bg-panel);
             border-right: 1px solid #334;
-            padding: 20px;
-            overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            min-width: 300px;
+            min-width: 350px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #334;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--text-muted);
+            background-color: #0d0d12;
+        }
+
+        .tab.active {
+            color: var(--accent-cyan);
+            background-color: var(--bg-panel);
+            border-bottom: 2px solid var(--accent-cyan);
+        }
+
+        .tab-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
 
         .panel-title {
             color: var(--accent-cyan);
-            border-bottom: 2px solid var(--accent-cyan);
+            border-bottom: 1px solid #334;
             padding-bottom: 5px;
-            margin: 0;
+            margin: 0 0 15px 0;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
             gap: 5px;
+            margin-bottom: 10px;
         }
 
         label {
@@ -238,12 +274,62 @@
             font-family: inherit;
         }
 
-        input[type="text"]:focus {
-            outline: none;
+        textarea {
+            background-color: #000;
+            border: 1px solid #334;
+            color: var(--success);
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            height: 150px;
+            resize: vertical;
+        }
+
+        /* GESTOR DE CODIGO */
+        .code-item {
+            background-color: #0d0d12;
+            border: 1px solid #334;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: border 0.2s;
+        }
+
+        .code-item:hover {
             border-color: var(--accent-cyan);
         }
 
-        /* --- MAPA DE FLUJO (Derecha) --- */
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .sync-ok {
+            background-color: var(--success);
+            box-shadow: 0 0 5px var(--success);
+        }
+
+        .sync-err {
+            background-color: var(--error);
+            box-shadow: 0 0 5px var(--error);
+        }
+
+        .sync-warn {
+            background-color: var(--warning);
+            box-shadow: 0 0 5px var(--warning);
+        }
+
+        .code-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        /* MAPA DE FLUJO */
         .flow-container {
             flex: 1;
             background-color: var(--bg-panel);
@@ -323,28 +409,44 @@
 <body>
 
     <div class="topbar">
-        <div class="brand">🦇 CHROMA CAT DTC <span>DESIGNER</span></div>
+        <div class="brand">🦇 CHROMA CAT <span>IDE</span></div>
         <div class="toolbar">
-            <label class="btn-file">
-                📂 Cargar menu.json
-                <input type="file" id="jsonLoader" accept=".json">
-            </label>
-            <button class="btn-export" onclick="exportJSON()">💾 Exportar a Producción (.json)</button>
+            <label class="btn-file">📂 1. Cargar menu.json<input type="file" id="jsonLoader" accept=".json"></label>
+            <label class="btn-file" style="border-color:var(--text-muted); color:var(--text-muted);">📜 2. Cargar
+                Toolbox.ps1<input type="file" id="ps1Loader" accept=".ps1"></label>
+            <button class="btn-export-json" onclick="exportJSON()">💾 Exportar JSON</button>
+            <button class="btn-export-ps1" onclick="exportPS1()" id="btnExportPS1" style="display:none;">💾 Exportar PS1
+                Compilado</button>
         </div>
     </div>
 
     <div class="workspace">
         <div class="console-workspace">
-            <div id="statusBar" class="status-bar">Toolbox V11 - DTC View</div>
+            <div id="statusBar" class="status-bar">Toolbox V11 IDE [Esperando archivos...]</div>
             <div class="console-container" id="console">
-                <div class="line color-gray">Esperando archivo menu.json...</div>
+                <div class="line color-gray">Cargá el menu.json para iniciar el motor visual.</div>
             </div>
         </div>
 
-        <div class="inspector" id="inspector">
-            <h3 class="panel-title">Inspector Direct-To-Console</h3>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top:5px;">Hacé clic en CUALQUIER elemento de
-                la consola para editarlo, o creá submenús desde aquí.</p>
+        <div class="inspector">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('visual')" id="tabVisual">Diseño Visual</div>
+                <div class="tab" onclick="switchTab('code')" id="tabCode">Gestor de Código PS1</div>
+            </div>
+
+            <div class="tab-content active" id="contentVisual">
+                <h3 class="panel-title">Inspector Direct-To-Console</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Hacé clic en CUALQUIER elemento de la consola
+                    para editarlo.</p>
+                <div id="inspectorForm"></div>
+            </div>
+
+            <div class="tab-content" id="contentCode">
+                <div id="codeManagerArea">
+                    <p style="color: var(--warning); font-size: 0.9rem;">⚠️ Cargá el archivo Toolbox.ps1 usando el botón
+                        superior para habilitar el motor de código.</p>
+                </div>
+            </div>
         </div>
 
         <div class="flow-container" id="flow">
@@ -354,85 +456,218 @@
     </div>
 
     <script>
-        // Plantilla Base
-        let db = {
-            "config": { "version": "11.0", "default_lang": "es" },
-            "diccionario": {
-                "title": { "es": "TOOLBOX TECNICO PRO - By Viktor", "en": "TECH TOOLBOX PRO - By Viktor" },
-                "legend": { "es": "[Blanco: Seguro] | [Amarillo: Avanzado] | [Rojo: Borrado/Reset]", "en": "[White: Safe] | [Yellow: Advanced] | [Red: Delete/Reset]" },
-                "option": { "es": "Opcion:", "en": "Option:" }
-            },
-            "menus": {
-                "principal": {
-                    "titulo": null,
-                    "opciones": [
-                        { "tecla": "A", "label_es": "MODO AUTOMATICO", "label_en": "AUTOMATIC MODE", "target": "cmd_auto" },
-                        { "tecla": "0", "label_es": "Salir", "label_en": "Exit", "target": "sys_exit" }
-                    ]
-                }
-            }
-        };
-
+        // --- ESTADO GLOBAL ---
+        let db = null;
         let currentLang = 'es';
         let currentViewMenuId = 'principal';
         let isWaitingForInput = false;
 
-        // --- INICIALIZACIÓN ---
+        // Estado del PS1
+        let ps1Loaded = false;
+        let ps1PreCode = "";
+        let ps1PostCode = "";
+        let ps1Actions = {}; // { "cmd_name": "code...", ... }
+        let ps1JsonUrl = "https://raw.githubusercontent.com/.../menu.json";
+
+        // --- SISTEMA DE PESTAÑAS ---
+        function switchTab(tabName) {
+            document.getElementById('tabVisual').classList.remove('active');
+            document.getElementById('tabCode').classList.remove('active');
+            document.getElementById('contentVisual').classList.remove('active');
+            document.getElementById('contentCode').classList.remove('active');
+
+            if (tabName === 'visual') {
+                document.getElementById('tabVisual').classList.add('active');
+                document.getElementById('contentVisual').classList.add('active');
+            } else {
+                document.getElementById('tabCode').classList.add('active');
+                document.getElementById('contentCode').classList.add('active');
+                renderCodeManager();
+            }
+        }
+
+        // --- 1. LECTORES DE ARCHIVOS ---
         document.getElementById('jsonLoader').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
+            const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = function (e) {
                 try {
                     db = JSON.parse(e.target.result);
                     currentLang = db.config.default_lang || 'es';
-                    renderTerminal('principal');
-                    renderInspectorMainMenu();
+                    renderTerminal('principal'); renderInspectorMainMenu(); renderCodeManager();
                 } catch (err) { alert("Error crítico en JSON: " + err); }
             };
             reader.readAsText(file);
         });
 
-        // --- TECLADO ---
+        document.getElementById('ps1Loader').addEventListener('change', function (e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) { parsePS1File(e.target.result); };
+            reader.readAsText(file);
+        });
+
+        // --- 2. PARSER DE POWERSHELL (Magia Regex/Bloques) ---
+        function parsePS1File(content) {
+            // 1. Extraer URL del JSON
+            let urlMatch = content.match(/\$jsonUrl\s*=\s*["']([^"']+)["']/);
+            if (urlMatch) ps1JsonUrl = urlMatch[1];
+
+            // 2. Aislar bloque $Actions = @{
+            let actionsStartStr = "$Actions = @{";
+            let actionsStartIndex = content.indexOf(actionsStartStr);
+            if (actionsStartIndex === -1) { alert("Error: No se encontró el bloque '$Actions = @{' en el archivo PS1."); return; }
+
+            ps1PreCode = content.substring(0, actionsStartIndex + actionsStartStr.length);
+            let remaining = content.substring(actionsStartIndex + actionsStartStr.length);
+
+            // Contar llaves para encontrar el cierre exacto de $Actions
+            let braceCount = 1; let actionsEndIndex = -1;
+            for (let i = 0; i < remaining.length; i++) {
+                if (remaining[i] === '{') braceCount++;
+                if (remaining[i] === '}') braceCount--;
+                if (braceCount === 0) { actionsEndIndex = i; break; }
+            }
+
+            let innerActions = remaining.substring(0, actionsEndIndex);
+            ps1PostCode = remaining.substring(actionsEndIndex);
+            ps1Actions = {}; // Reset
+
+            // 3. Extraer cada "cmd_algo" = { código }
+            let regex = /"([^"]+)"\s*=\s*\{/g;
+            let match; let keys = [];
+            while ((match = regex.exec(innerActions)) !== null) {
+                keys.push({ key: match[1], index: match.index, braceStart: match.index + match[0].length - 1 });
+            }
+
+            for (let i = 0; i < keys.length; i++) {
+                let start = keys[i].braceStart;
+                let bCount = 0; let codeEnd = start;
+                for (let j = start; j < innerActions.length; j++) {
+                    if (innerActions[j] === '{') bCount++;
+                    if (innerActions[j] === '}') bCount--;
+                    if (bCount === 0) { codeEnd = j; break; }
+                }
+                ps1Actions[keys[i].key] = innerActions.substring(start + 1, codeEnd).trim();
+            }
+
+            ps1Loaded = true;
+            document.getElementById('btnExportPS1').style.display = 'inline-block';
+            document.querySelector("label[for='ps1Loader']").style.borderColor = "var(--success)";
+            document.querySelector("label[for='ps1Loader']").style.color = "var(--success)";
+            document.querySelector("label[for='ps1Loader']").innerHTML = "📜 PS1 Sincronizado";
+            switchTab('code');
+        }
+
+        // --- 3. GESTOR DE CÓDIGO (La nueva pestaña) ---
+        function renderCodeManager() {
+            const area = document.getElementById('codeManagerArea');
+            if (!ps1Loaded) return;
+            if (!db) { area.innerHTML = '<p>Cargá el menu.json primero para cruzar los datos.</p>'; return; }
+
+            // Recopilar todos los targets que necesitan código (cmd_ y action_) desde el JSON
+            let jsonTargets = new Set();
+            for (const menuId in db.menus) {
+                db.menus[menuId].opciones.forEach(op => {
+                    if (op.target.startsWith('cmd_') || op.target.startsWith('action_')) { jsonTargets.add(op.target); }
+                });
+            }
+
+            let ps1Keys = Object.keys(ps1Actions);
+            let html = `
+                <div class="form-group" style="border-bottom: 1px solid #334; padding-bottom:15px; margin-bottom:15px;">
+                    <label>URL Nube (Enlace RAW de tu menu.json en GitHub)</label>
+                    <input type="text" id="config_jsonUrl" value="${ps1JsonUrl}" onchange="ps1JsonUrl = this.value; alert('URL actualizada en memoria.');">
+                </div>
+                <h4 style="margin:0 0 10px 0; color:var(--text-main);">Estado de Sincronización</h4>
+            `;
+
+            // Evaluar Targets del JSON vs PS1
+            jsonTargets.forEach(tgt => {
+                if (ps1Actions.hasOwnProperty(tgt)) {
+                    html += `<div class="code-item" onclick="openCodeEditor('${tgt}')"><span class="status-dot sync-ok"></span> <strong>${tgt}</strong> <div class="code-meta">Sincronizado. Haz clic para editar código.</div></div>`;
+                    ps1Keys = ps1Keys.filter(k => k !== tgt); // Remover de la lista de chequeo
+                } else {
+                    html += `<div class="code-item" onclick="openCodeEditor('${tgt}', true)"><span class="status-dot sync-err"></span> <strong>${tgt}</strong> <div class="code-meta" style="color:var(--error);">Falta en PS1. Clic para crear código.</div></div>`;
+                }
+            });
+
+            // Código Fantasma (Existe en PS1 pero no en JSON)
+            ps1Keys.forEach(tgt => {
+                html += `<div class="code-item" onclick="openCodeEditor('${tgt}')"><span class="status-dot sync-warn"></span> <strong>${tgt}</strong> <div class="code-meta" style="color:var(--warning);">Código fantasma (No usado en JSON).</div></div>`;
+            });
+
+            area.innerHTML = html;
+        }
+
+        function openCodeEditor(targetKey, isNew = false) {
+            const area = document.getElementById('codeManagerArea');
+            let currentCode = isNew ? `Write-Centered ">> Ejecutando ${targetKey} <<" "Green"\nPause-Menu` : ps1Actions[targetKey];
+
+            area.innerHTML = `
+                <h4 style="color:var(--accent-cyan); margin:0 0 10px 0;">Editando: ${targetKey}</h4>
+                <div class="form-group">
+                    <textarea id="editor_code">${currentCode}</textarea>
+                </div>
+                <button onclick="saveCodeEditor('${targetKey}')" style="border-color:var(--success); color:var(--success);">Guardar en Memoria</button>
+                <button onclick="deleteCode('${targetKey}')" style="border-color:var(--error); color:var(--error); margin-left:5px;">✖ Eliminar</button>
+                <button onclick="renderCodeManager()" style="border-color:var(--text-muted); color:var(--text-muted); margin-left:5px;">Cancelar</button>
+            `;
+        }
+
+        function saveCodeEditor(targetKey) { ps1Actions[targetKey] = document.getElementById('editor_code').value; renderCodeManager(); }
+        function deleteCode(targetKey) { if (confirm("¿Eliminar este bloque del script?")) { delete ps1Actions[targetKey]; renderCodeManager(); } }
+
+        // --- 4. EXPORTADOR PS1 COMPILADO ---
+        function exportPS1() {
+            if (!ps1Loaded) return;
+
+            // Reemplazar la URL en el pre-código usando Regex
+            let compiledPreCode = ps1PreCode.replace(/\$jsonUrl\s*=\s*["'][^"']+["']/, `$jsonUrl = "${ps1JsonUrl}"`);
+
+            let compiledActions = "\n";
+            for (const [key, code] of Object.entries(ps1Actions)) {
+                // Indentar el código para que quede bonito
+                let indentedCode = code.split('\n').map(line => '        ' + line).join('\n');
+                compiledActions += `    "${key}" = {\n${indentedCode}\n    }\n`;
+            }
+
+            const fullScript = compiledPreCode + compiledActions + ps1PostCode;
+
+            const dataStr = "data:application/x-powershell;charset=utf-8," + encodeURIComponent(fullScript);
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "Toolbox.ps1");
+            document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+        }
+
+        // =====================================================================
+        // ================= MOTOR VISUAL Y DE NAVEGACIÓN DTC ==================
+        // =====================================================================
+
         document.addEventListener('keydown', function (event) {
             if (!isWaitingForInput || !db) return;
             if (event.ctrlKey || event.altKey || event.metaKey || event.key.length > 1) return;
-
             const pressedKey = event.key.toUpperCase();
-            const currentMenuData = db.menus[currentViewMenuId];
-            const option = currentMenuData.opciones.find(op => op.tecla.toUpperCase() === pressedKey);
-
+            const option = db.menus[currentViewMenuId].opciones.find(op => op.tecla.toUpperCase() === pressedKey);
             if (option) {
                 if (option.target === 'sys_lang_toggle') { currentLang = currentLang === 'es' ? 'en' : 'es'; renderTerminal(currentViewMenuId); }
                 else if (option.target === 'sys_exit') { printLine("\nCerrando Toolbox...", "color-gray"); isWaitingForInput = false; }
                 else if (option.target.startsWith('cmd_') || option.target.startsWith('action_')) {
-                    isWaitingForInput = false; printLine(`\n>> Ejecutando código: ${option.target}...`, "color-green");
+                    isWaitingForInput = false; printLine(`\n>> Simulando ejecución de código: ${option.target}...`, "color-green");
                     setTimeout(() => { renderTerminal(currentViewMenuId); }, 1000);
-                }
-                else { renderTerminal(option.target); }
+                } else { renderTerminal(option.target); }
             }
         });
 
-        // --- RENDER TERMINAL ---
         function renderTerminal(menuId) {
-            if (!db.menus[menuId]) {
-                printLine(`\n[!] ERROR LINTER: El menú '${menuId}' no existe.`, "color-red");
-                renderInspectorMainMenu();
-                return;
-            }
-
-            currentViewMenuId = menuId;
-            const menuData = db.menus[menuId];
-            const dic = db.diccionario;
-            const consoleDiv = document.getElementById('console');
-            consoleDiv.innerHTML = '';
-
+            if (!db || !db.menus[menuId]) { renderInspectorMainMenu(); return; }
+            currentViewMenuId = menuId; const menuData = db.menus[menuId]; const dic = db.diccionario;
+            const consoleDiv = document.getElementById('console'); consoleDiv.innerHTML = '';
             document.getElementById('statusBar').innerText = `Toolbox V11 | Menú: ${menuId} | Idioma: ${currentLang.toUpperCase()}`;
 
             const printEditableLine = (text, colorClass, dicKey, type) => {
-                const div = document.createElement('div');
-                div.className = `line editable ${colorClass}`; div.innerText = text;
-                div.onclick = () => openFocusedEditor({ type: type, dicKey: dicKey });
+                const div = document.createElement('div'); div.className = `line editable ${colorClass}`; div.innerText = text;
+                div.onclick = () => { switchTab('visual'); openFocusedEditor({ type: type, dicKey: dicKey }); };
                 consoleDiv.appendChild(div);
             };
 
@@ -447,13 +682,8 @@
             printEditableLine(dic.legend[currentLang], "color-gray", 'legend', 'diccionario');
             printLine("");
 
-            if (menuData.titulo && menuData.titulo[currentLang]) {
-                printEditableLine(`=== ${menuData.titulo[currentLang]} ===`, "color-cyan", 'titulo', 'menutitle');
-                printLine("");
-            } else if (currentViewMenuId !== 'principal') {
-                printEditableLine(`=== [Hacé clic para agregar título] ===`, "color-gray", 'titulo', 'menutitle_none');
-                printLine("");
-            }
+            if (menuData.titulo && menuData.titulo[currentLang]) { printEditableLine(`=== ${menuData.titulo[currentLang]} ===`, "color-cyan", 'titulo', 'menutitle'); printLine(""); }
+            else if (currentViewMenuId !== 'principal') { printEditableLine(`=== [Hacé clic para agregar título] ===`, "color-gray", 'titulo', 'menutitle_none'); printLine(""); }
 
             menuData.opciones.forEach((op, index) => {
                 const label = currentLang === 'es' ? op.label_es : op.label_en;
@@ -462,145 +692,91 @@
                 if (op.tecla === 'L' || op.tecla === 'C' || op.target.startsWith('sys_')) color = "color-yellow";
                 if (op.tecla === '0' || op.target === 'sys_exit') color = "color-gray";
 
-                const div = document.createElement('div');
-                div.className = `line editable ${color}`; div.innerText = ` ${op.tecla}. ${label} `;
-                div.onclick = () => openFocusedEditor({ type: 'opcion', index: index });
+                const div = document.createElement('div'); div.className = `line editable ${color}`; div.innerText = ` ${op.tecla}. ${label} `;
+                div.onclick = () => { switchTab('visual'); openFocusedEditor({ type: 'opcion', index: index }); };
                 consoleDiv.appendChild(div);
             });
 
             printLine(""); printLine("-".repeat(80), "color-gray");
             const pLine = document.createElement('div'); pLine.className = 'line color-gray prompt-line';
-            const optSpan = document.createElement('span'); optSpan.className = 'editable color-gray';
-            optSpan.innerText = `+ ${dic.option[currentLang]} `;
-            optSpan.onclick = () => openFocusedEditor({ type: 'diccionario', dicKey: 'option' });
-            pLine.appendChild(optSpan); pLine.innerHTML += `<span id="prompt-input" class="blink">_</span>`;
-            consoleDiv.appendChild(pLine);
+            const optSpan = document.createElement('span'); optSpan.className = 'editable color-gray'; optSpan.innerText = `+ ${dic.option[currentLang]} `;
+            optSpan.onclick = () => { switchTab('visual'); openFocusedEditor({ type: 'diccionario', dicKey: 'option' }); };
+            pLine.appendChild(optSpan); pLine.innerHTML += `<span id="prompt-input" class="blink">_</span>`; consoleDiv.appendChild(pLine);
 
-            isWaitingForInput = true;
-            renderFlowMap(); // Actualiza el mapa derecho
+            isWaitingForInput = true; renderFlowMap(); if (ps1Loaded) renderCodeManager();
         }
 
-        function printLine(text, colorClass = 'color-white') {
-            const div = document.createElement('div'); div.className = `line ${colorClass}`; div.innerText = text;
-            document.getElementById('console').appendChild(div);
-        }
+        function printLine(text, colorClass = 'color-white') { const div = document.createElement('div'); div.className = `line ${colorClass}`; div.innerText = text; document.getElementById('console').appendChild(div); }
 
-        // --- MAPA DE FLUJO (Derecha) ---
         function renderFlowMap() {
-            const flowDiv = document.getElementById('flow-content');
-            let html = '';
-
+            if (!db) return; const flowDiv = document.getElementById('flow-content'); let html = '';
             for (const key in db.menus) {
                 const isCurrent = key === currentViewMenuId ? 'node-active' : '';
-                // Al hacer clic en el nombre del menú en el mapa, salta a él
-                html += `<div class="node-menu ${isCurrent}" onclick="renderTerminal('${key}')">🗂️ ${key}</div>`;
-                html += `<ul class="tree">`;
-
+                html += `<div class="node-menu ${isCurrent}" onclick="renderTerminal('${key}')">🗂️ ${key}</div><ul class="tree">`;
                 db.menus[key].opciones.forEach(op => {
                     let targetClass = ''; let typeIcon = ''; let errorTag = '';
-
-                    if (op.target.startsWith('menu_') || op.target === 'principal') {
-                        targetClass = 'node-target-menu'; typeIcon = '🔗';
-                        // Linter Check
-                        if (!db.menus[op.target]) errorTag = `<span class="node-error">! ROTO</span>`;
-                    }
-                    else if (op.target.startsWith('cmd_') || op.target.startsWith('action_')) { targetClass = 'node-target-cmd'; typeIcon = '⚡'; }
+                    if (op.target.startsWith('menu_') || op.target === 'principal') { targetClass = 'node-target-menu'; typeIcon = '🔗'; if (!db.menus[op.target]) errorTag = `<span class="node-error">! ROTO</span>`; }
+                    else if (op.target.startsWith('cmd_') || op.target.startsWith('action_')) { targetClass = 'node-target-cmd'; typeIcon = '⚡'; if (ps1Loaded && !ps1Actions[op.target]) errorTag = `<span class="node-error" style="background:var(--error); color:#fff;" title="Falta en PS1">! NO CÓDIGO</span>`; }
                     else { targetClass = 'node-target-sys'; typeIcon = '⚙️'; }
-
-                    html += `<li><span style="color:#aaa;">[${op.tecla}]</span> ${op.label_es} <br> 
-                             └─> <span class="${targetClass}" onclick="if('${targetClass}'==='node-target-menu') renderTerminal('${op.target}')">${typeIcon} ${op.target} ${errorTag}</span></li><br>`;
+                    html += `<li><span style="color:#aaa;">[${op.tecla}]</span> ${op.label_es} <br> └─> <span class="${targetClass}" onclick="if('${targetClass}'==='node-target-menu') renderTerminal('${op.target}')">${typeIcon} ${op.target} ${errorTag}</span></li><br>`;
                 });
                 html += `</ul>`;
             }
             flowDiv.innerHTML = html;
         }
 
-        // --- INSPECTOR (Centro) ---
         function openFocusedEditor(context) {
-            isWaitingForInput = false; const inspector = document.getElementById('inspector');
-            let html = '';
-
+            isWaitingForInput = false; const inspector = document.getElementById('inspectorForm'); let html = '';
             if (context.type === 'diccionario') {
                 const entry = db.diccionario[context.dicKey];
-                html = `
-                    <h3 class="panel-title">Editor Global</h3>
-                    <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Variable: [${context.dicKey}]</div>
-                    <div class="form-group"><label>Español (ES)</label><input type="text" id="edit_es" value="${entry.es}"></div>
-                    <div class="form-group"><label>Inglés (EN)</label><input type="text" id="edit_en" value="${entry.en}"></div>
-                    <button onclick="saveDicEditor('${context.dicKey}')" style="margin-top:10px; border-color:var(--success); color:var(--success);">Guardar Cambios</button>
-                    <button onclick="cancelEditor()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>
-                `;
-            }
-            else if (context.type === 'menutitle' || context.type === 'menutitle_none') {
+                html = `<div class="form-group"><label>Español (ES)</label><input type="text" id="edit_es" value="${entry.es}"></div><div class="form-group"><label>Inglés (EN)</label><input type="text" id="edit_en" value="${entry.en}"></div><button onclick="saveDicEditor('${context.dicKey}')" style="border-color:var(--success); color:var(--success);">Guardar</button> <button onclick="renderInspectorMainMenu()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>`;
+            } else if (context.type === 'menutitle' || context.type === 'menutitle_none') {
                 const m = db.menus[currentViewMenuId];
-                html = `
-                    <h3 class="panel-title">Título del Menú</h3>
-                    <div class="form-group"><label>Español (Dejar vacío para ocultar)</label><input type="text" id="edit_tit_es" value="${m.titulo ? m.titulo.es : ''}"></div>
-                    <div class="form-group"><label>Inglés</label><input type="text" id="edit_tit_en" value="${m.titulo ? m.titulo.en : ''}"></div>
-                    <button onclick="saveTitleEditor()" style="margin-top:10px; border-color:var(--success); color:var(--success);">Guardar Cambios</button>
-                    <button onclick="cancelEditor()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>
-                `;
-            }
-            else if (context.type === 'opcion') {
+                html = `<div class="form-group"><label>Título Español</label><input type="text" id="edit_tit_es" value="${m.titulo ? m.titulo.es : ''}"></div><div class="form-group"><label>Título Inglés</label><input type="text" id="edit_tit_en" value="${m.titulo ? m.titulo.en : ''}"></div><button onclick="saveTitleEditor()" style="border-color:var(--success); color:var(--success);">Guardar</button> <button onclick="renderInspectorMainMenu()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>`;
+            } else if (context.type === 'opcion') {
                 const op = db.menus[currentViewMenuId].opciones[context.index];
                 html = `
-                    <h3 class="panel-title">Editor de Opción</h3>
-                    <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Tecla ${op.tecla} del menú [${currentViewMenuId}]</div>
-                    <div class="form-group"><label>Tecla (Ej: 1, A)</label><input type="text" id="edit_op_key" value="${op.tecla}"></div>
+                    <div style="font-size:0.9rem; color:var(--accent-pink); margin-bottom:10px;">Editando Opción ${op.tecla}</div>
+                    <div class="form-group"><label>Tecla</label><input type="text" id="edit_op_key" value="${op.tecla}"></div>
                     <div class="form-group"><label>Español</label><input type="text" id="edit_op_es" value="${op.label_es}"></div>
                     <div class="form-group"><label>Inglés</label><input type="text" id="edit_op_en" value="${op.label_en}"></div>
-                    <div class="form-group"><label>Target (Destino)</label><input type="text" id="edit_op_target" value="${op.target}" style="color:var(--accent-pink);"></div>
-                    
-                    <button onclick="saveOptionEditor(${context.index})" style="margin-top:10px; border-color:var(--success); color:var(--success);">Guardar Cambios</button>
-                    <button onclick="addOptionBelow(${context.index})" style="border-color:var(--accent-cyan); color:var(--accent-cyan);">+ Agregar Nueva Opción Abajo</button>
-                    <button onclick="deleteOption('${context.index}')" style="border-color:var(--error); color:var(--error);">✖ Eliminar Opción</button>
-                    <button onclick="cancelEditor()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>
+                    <div class="form-group"><label>Target</label><input type="text" id="edit_op_target" value="${op.target}"></div>
+                    <button onclick="saveOptionEditor(${context.index})" style="margin-top:10px; border-color:var(--success); color:var(--success);">Guardar</button>
+                    <button onclick="addOptionBelow(${context.index})" style="border-color:var(--accent-cyan); color:var(--accent-cyan);">+ Añadir Abajo</button>
+                    <button onclick="deleteOption('${context.index}')" style="border-color:var(--error); color:var(--error);">✖ Eliminar</button>
                 `;
             }
             inspector.innerHTML = html;
         }
 
-        function cancelEditor() { renderTerminal(currentViewMenuId); renderInspectorMainMenu(); }
-        function saveDicEditor(key) { db.diccionario[key].es = document.getElementById('edit_es').value; db.diccionario[key].en = document.getElementById('edit_en').value; cancelEditor(); }
-        function saveTitleEditor() {
-            const es = document.getElementById('edit_tit_es').value; const en = document.getElementById('edit_tit_en').value;
-            db.menus[currentViewMenuId].titulo = (es || en) ? { es: es, en: en } : null; cancelEditor();
-        }
+        function saveDicEditor(key) { db.diccionario[key].es = document.getElementById('edit_es').value; db.diccionario[key].en = document.getElementById('edit_en').value; renderTerminal(currentViewMenuId); renderInspectorMainMenu(); }
+        function saveTitleEditor() { const es = document.getElementById('edit_tit_es').value; const en = document.getElementById('edit_tit_en').value; db.menus[currentViewMenuId].titulo = (es || en) ? { es: es, en: en } : null; renderTerminal(currentViewMenuId); renderInspectorMainMenu(); }
         function saveOptionEditor(index) {
             const op = db.menus[currentViewMenuId].opciones[index];
             op.tecla = document.getElementById('edit_op_key').value; op.label_es = document.getElementById('edit_op_es').value;
             op.label_en = document.getElementById('edit_op_en').value; op.target = document.getElementById('edit_op_target').value;
-            cancelEditor();
+            renderTerminal(currentViewMenuId); renderInspectorMainMenu();
         }
-        function deleteOption(index) { if (confirm("¿Eliminar esta opción?")) { db.menus[currentViewMenuId].opciones.splice(index, 1); cancelEditor(); } }
-        function addOptionBelow(index) { db.menus[currentViewMenuId].opciones.splice(index + 1, 0, { "tecla": "?", "label_es": "Nueva Opción", "label_en": "New Option", "target": "principal" }); cancelEditor(); }
+        function deleteOption(index) { if (confirm("¿Eliminar esta opción?")) { db.menus[currentViewMenuId].opciones.splice(index, 1); renderTerminal(currentViewMenuId); renderInspectorMainMenu(); } }
+        function addOptionBelow(index) { db.menus[currentViewMenuId].opciones.splice(index + 1, 0, { "tecla": "?", "label_es": "Nueva Opción", "label_en": "New", "target": "principal" }); renderTerminal(currentViewMenuId); renderInspectorMainMenu(); }
 
         function renderInspectorMainMenu() {
-            document.getElementById('inspector').innerHTML = `
-                <h3 class="panel-title">Herramientas Generales</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Hacé clic en la consola para editar una opción, o usá estas herramientas rápidas.</p>
-                <button onclick="addNewMenuSubmenu()" style="border-style:dashed; margin-top:10px;">+ Crear Nuevo Submenú Vacío</button>
+            document.getElementById('inspectorForm').innerHTML = `
+                <button onclick="addNewMenuSubmenu()" style="border-style:dashed; margin-top:20px; width:100%;">+ Crear Submenú Vacío</button>
             `;
         }
-
         function addNewMenuSubmenu() {
-            const newId = prompt("Escribí el ID del nuevo Submenú\n(Sin espacios, Ej: menu_redes_con).", "menu_nuevo");
-            if (!newId || newId.trim() === '') return;
-            const cleanId = newId.trim().replace(/\s+/g, '_').toLowerCase();
-            if (db.menus[cleanId]) { alert("Ese ID ya existe."); return; }
+            const newId = prompt("Escribí el ID del nuevo Submenú", "menu_nuevo"); if (!newId || newId.trim() === '') return;
+            const cleanId = newId.trim().replace(/\s+/g, '_').toLowerCase(); if (db.menus[cleanId]) { alert("Ese ID ya existe."); return; }
             db.menus[cleanId] = { "titulo": { "es": "NUEVO TÍTULO", "en": "NEW TITLE" }, "opciones": [{ "tecla": "0", "label_es": "Volver", "label_en": "Back", "target": "principal" }] };
             renderTerminal(cleanId); renderInspectorMainMenu();
         }
 
-        // --- EXPORTAR ---
         function exportJSON() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "menu.json");
-            document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+            if (!db) return; const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const a = document.createElement('a'); a.href = dataStr; a.download = "menu.json"; document.body.appendChild(a); a.click(); a.remove();
         }
-
-        renderTerminal('principal'); renderInspectorMainMenu();
+        renderInspectorMainMenu();
     </script>
 </body>
 
