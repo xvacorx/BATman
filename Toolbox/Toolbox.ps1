@@ -28,7 +28,7 @@ if ($Host.Name -eq "ConsoleHost") {
 
 # --- 4. CARGA DE BASE DE DATOS E HIBRIDACION (JSON) ---
 # ATENCION: Reemplaza esta URL por el enlace RAW de tu menu.json en GitHub
-$jsonUrl = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/menu.json" 
+$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/ToolboxUpdate/Toolbox/menu.json" 
 
 $jsonPath = Join-Path (Split-Path -Parent -Path $MyInvocation.MyCommand.Definition -ErrorAction SilentlyContinue) "menu.json" -ErrorAction SilentlyContinue
 if ([string]::IsNullOrEmpty($jsonPath) -or -not (Test-Path $jsonPath)) { $jsonPath = ".\menu.json" }
