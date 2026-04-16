@@ -1,6 +1,6 @@
 {
     "config": {
-        "version": "11.0",
+        "version": "2.1.0",
         "default_lang": "es"
     },
     "diccionario": {
@@ -56,6 +56,12 @@
                     "label_es": "Optimizaciones y Atajos Clasicos",
                     "label_en": "Optimizations & Classic Shortcuts",
                     "target": "menu_opt"
+                },
+                {
+                    "tecla": "7",
+                    "label_es": "Gestion de Impresoras",
+                    "label_en": "Printer Management",
+                    "target": "menu_impresoras"
                 },
                 {
                     "tecla": "A",
@@ -165,24 +171,18 @@
                 },
                 {
                     "tecla": "4",
-                    "label_es": "Destrabar Cola de Impresion",
-                    "label_en": "Clear Print Spooler (Unjam Printer)",
-                    "target": "cmd_rep_spool"
-                },
-                {
-                    "tecla": "5",
                     "label_es": "Reconstruir Cache de Iconos",
                     "label_en": "Rebuild Icon Cache",
                     "target": "cmd_rep_icons"
                 },
                 {
-                    "tecla": "6",
+                    "tecla": "5",
                     "label_es": "Forzar Sincronizacion de Hora",
                     "label_en": "Force Clock Synchronization",
                     "target": "cmd_rep_time"
                 },
                 {
-                    "tecla": "7",
+                    "tecla": "6",
                     "label_es": "Hard Reset Windows Update",
                     "label_en": "Hard Reset Windows Update",
                     "target": "cmd_rep_wu"
@@ -356,6 +356,50 @@
                     "label_es": "Programas",
                     "label_en": "Uninstall Programs",
                     "target": "cmd_opt_app"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
+                    "target": "principal"
+                }
+            ]
+        },
+        "menu_impresoras": {
+            "titulo": {
+                "es": "GESTION DE IMPRESORAS Y COMPARTICION",
+                "en": "PRINTER MANAGEMENT & SHARING"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Destrabar Cola de Impresion (Spooler)",
+                    "label_en": "Clear Print Spooler",
+                    "target": "cmd_rep_spool"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Eliminar una Impresora del Sistema",
+                    "label_en": "Delete a Printer from System",
+                    "target": "cmd_print_del"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Eliminar Drivers de Impresoras",
+                    "label_en": "Delete Printer Drivers",
+                    "target": "cmd_print_driver"
+                },
+                {
+                    "tecla": "4",
+                    "label_es": "Crear Carpeta Maestra de Impresoras en Escritorio",
+                    "label_en": "Create Master Printers Folder on Desktop",
+                    "target": "cmd_print_folder"
+                },
+                {
+                    "tecla": "5",
+                    "label_es": "Permitir Compartir Impresoras (Reglas de Firewall)",
+                    "label_en": "Allow Printer Sharing (Firewall Rules)",
+                    "target": "cmd_print_fw"
                 },
                 {
                     "tecla": "0",

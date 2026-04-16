@@ -112,9 +112,11 @@ $Accion_Reparacion = {
 $Accion_Red = { ipconfig /release | Out-Null; netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; ipconfig /flushdns | Out-Null; ipconfig /renew | Out-Null }
 
 # --- 6. REGISTRO DE COMANDOS (Action Map) ---
-# Aquí es donde el motor mapea el "target" del JSON con el código real de PowerShell.
 $Actions = @{
-    # -- Diagnostico --
+    
+    # ==========================================
+    # SECCION 1: DIAGNOSTICO E INFORMACION
+    # ==========================================
     "cmd_diag_sysinfo" = {
         Write-Centered "--- INFO ---" "Cyan"; Write-Host "`n"
         $sysInfo = Get-WmiCim "Win32_ComputerSystem"; $cpu = (Get-WmiCim "Win32_Processor").Name
@@ -131,33 +133,45 @@ $Actions = @{
     "cmd_diag_inv" = { "Inventario" | Out-File "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt" -Encoding UTF8; Write-Centered "OK" "Green" }
     "cmd_diag_logs" = { if (Test-Path $logPath) { Get-Content $logPath -Tail 15 | ForEach-Object { Write-Centered $_ "White" } } }
 
-    # -- Reparacion --
+    # ==========================================
+    # SECCION 2: REPARACION
+    # ==========================================
     "cmd_rep_sfc" = { &$Accion_Reparacion; Play-FinishBeep }
     "cmd_rep_chkdsk" = { cmd.exe /c "echo S | chkdsk C: /f" | Out-Null; Write-Centered "OK" "Green" }
     "cmd_rep_restore" = { Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Manual" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
-    "cmd_rep_spool" = { Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item -Path "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service -Name Spooler -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
     "cmd_rep_icons" = { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue; Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue; Start-Process explorer; Write-Centered "OK" "Green" }
     "cmd_rep_time" = { Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" } }
     "cmd_rep_wu" = { Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
+    
+    # Nota: Este comando se llama desde menu_impresoras en v2.1.0, pero lo mantenemos agrupado lógicamente aquí o en su propia sección.
+    "cmd_rep_spool" = { Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item -Path "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service -Name Spooler -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
 
-    # -- Redes --
+    # ==========================================
+    # SECCION 3: REDES
+    # ==========================================
     "cmd_net_reset" = { &$Accion_Red; Write-Centered "OK" "Green" }
     "cmd_net_wifi" = { $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }; foreach ($profile in $profiles) { $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }; Write-Centered "$profile : $pass" "Green" } }
     "cmd_net_ip" = { if (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue) { Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed } else { Get-WmiCim Win32_NetworkAdapter | Where-Object NetConnectionStatus -eq 2 | Format-Table Name, MACAddress, Speed } }
 
-    # -- Limpieza --
+    # ==========================================
+    # SECCION 4: LIMPIEZA
+    # ==========================================
     "cmd_clean_temp" = { &$Accion_Limpieza; Write-Centered "OK" "Green" }
     "cmd_clean_logs" = { wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }; Write-Centered "OK" "Green" }
     "cmd_clean_winsxs" = { dism /online /cleanup-image /StartComponentCleanup | Out-Null; Play-FinishBeep; Write-Centered "OK" "Green" }
 
-    # -- Software --
+    # ==========================================
+    # SECCION 5: SOFTWARE Y ARRANQUE
+    # ==========================================
     "cmd_soft_install" = { if(Test-Winget){ winget install Google.Chrome AnyDesk.AnyDesk 7zip.7zip -e --disable-interactivity --accept-source-agreements --accept-package-agreements } }
     "cmd_soft_update" = { if(Test-Winget){ winget upgrade --all --include-unknown --disable-interactivity --accept-source-agreements --accept-package-agreements } }
     "cmd_soft_scan" = { if (Get-Command Start-MpScan -ErrorAction SilentlyContinue) { Start-MpScan -ScanType QuickScan; Write-Centered "OK" "Green" } }
     "cmd_soft_startup" = { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table }
     "cmd_soft_safe" = { Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF" "Yellow"; $sm = Read-Host; if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null }; if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null }; Write-Centered "OK" "Green" }
 
-    # -- Optimizaciones --
+    # ==========================================
+    # SECCION 6: OPTIMIZACIONES
+    # ==========================================
     "cmd_opt_fastoff" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
     "cmd_opt_faston" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
     "cmd_opt_godmode" = { $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"; if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }; Write-Centered "OK" "Green" }
@@ -167,7 +181,71 @@ $Actions = @{
     "cmd_opt_net" = { Start-Process ncpa.cpl }
     "cmd_opt_app" = { Start-Process appwiz.cpl }
 
-    # -- Modo Automático --
+    # ==========================================
+    # SECCION 7: IMPRESORAS (NUEVO V2.1.0)
+    # ==========================================
+    "cmd_print_del" = {
+        Write-Centered "--- ELIMINAR IMPRESORA ---" "Cyan"; Write-Host "`n"
+        $printers = Get-Printer | Select-Object Name, PortName
+        if ($printers.Count -eq 0) { Write-Centered "No hay impresoras instaladas." "Yellow"; return }
+        
+        $i = 1
+        foreach ($p in $printers) { Write-Host "  $i. $($p.Name) [$($p.PortName)]" -ForegroundColor White; $i++ }
+        Write-Host "`n"
+        $sel = Read-Host " Ingrese el numero de la impresora a eliminar (o '0' para cancelar)"
+        
+        if ([int]$sel -gt 0 -and [int]$sel -le $printers.Count) {
+            $target = $printers[[int]$sel - 1]
+            Remove-Printer -Name $target.Name -ErrorAction SilentlyContinue
+            Write-Centered "Impresora '$($target.Name)' eliminada con exito." "Green"
+        } else { Write-Centered "Operacion cancelada." "Gray" }
+    }
+    
+    "cmd_print_driver" = {
+        Write-Centered "--- ELIMINAR DRIVER DE IMPRESORA ---" "Cyan"; Write-Host "`n"
+        $drivers = Get-PrinterDriver | Select-Object Name, PrinterEnvironment
+        if ($drivers.Count -eq 0) { Write-Centered "No hay drivers de terceros instalados." "Yellow"; return }
+        
+        $i = 1
+        foreach ($d in $drivers) { Write-Host "  $i. $($d.Name)" -ForegroundColor White; $i++ }
+        Write-Host "`n"
+        $sel = Read-Host " Ingrese el numero del driver a eliminar (o '0' para cancelar)"
+        
+        if ([int]$sel -gt 0 -and [int]$sel -le $drivers.Count) {
+            $target = $drivers[[int]$sel - 1]
+            Remove-PrinterDriver -Name $target.Name -ErrorAction SilentlyContinue
+            Write-Centered "Driver '$($target.Name)' eliminado con exito." "Green"
+        } else { Write-Centered "Operacion cancelada." "Gray" }
+    }
+    
+    "cmd_print_folder" = {
+        $path = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"
+        if (-not (Test-Path $path)) { 
+            New-Item -ItemType Directory -Path $path | Out-Null 
+            Write-Centered "Carpeta de Impresoras creada en el Escritorio." "Green"
+        } else {
+            Write-Centered "La carpeta ya existe en el escritorio." "Yellow"
+        }
+    }
+    
+    "cmd_print_fw" = {
+        Write-Centered "--- CONFIGURANDO FIREWALL PARA COMPARTIR ---" "Cyan"; Write-Host "`n"
+        Write-Centered "Habilitando Ping (ICMPv4)..." "White"
+        Enable-NetFirewallRule -Name "FPS-ICMP4-ERQ-In" -ErrorAction SilentlyContinue | Out-Null
+        
+        Write-Centered "Habilitando Reglas TCP (139, 445) y UDP (137, 138)..." "White"
+        Enable-NetFirewallRule -DisplayGroup "Compartir archivos e impresoras" -ErrorAction SilentlyContinue | Out-Null
+        Enable-NetFirewallRule -DisplayGroup "File and Printer Sharing" -ErrorAction SilentlyContinue | Out-Null
+        
+        New-NetFirewallRule -DisplayName "Toolbox_PrintTCP" -Direction Inbound -Protocol TCP -LocalPort 139,445 -Action Allow -ErrorAction SilentlyContinue | Out-Null
+        New-NetFirewallRule -DisplayName "Toolbox_PrintUDP" -Direction Inbound -Protocol UDP -LocalPort 137,138 -Action Allow -ErrorAction SilentlyContinue | Out-Null
+        
+        Write-Centered "Reglas de Firewall configuradas con exito." "Green"
+    }
+
+    # ==========================================
+    # SECCION 8: MODO AUTOMATICO Y SISTEMA
+    # ==========================================
     "cmd_auto_run" = {
         Write-Centered ">> EJECUTANDO MANTENIMIENTO AUTOMATICO <<" "Green"; Write-Host "`n"
         Write-Centered "[ Paso 0 de 3 ] Punto de Restauracion..." "Yellow"
@@ -177,11 +255,8 @@ $Actions = @{
         Write-Centered "[ Paso 3 de 3 ] Reseteando red..." "Yellow"; &$Accion_Red
         Play-FinishBeep
     }
-    "cmd_auto_run_exit" = {
-        & $Actions["cmd_auto_run"]; [Console]::Clear(); exit
-    }
+    "cmd_auto_run_exit" = { & $Actions["cmd_auto_run"]; [Console]::Clear(); exit }
     
-    # -- Extras --
     "action_credits" = {
         Write-Centered "=== CREDITOS ===" "Cyan"; Write-Host "`n"
         Write-Centered "Toolbox Tecnico Pro - By Viktor" "White"
@@ -222,7 +297,6 @@ while ($true) {
     foreach ($op in $menuData.opciones) {
         $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
         
-        # Asignación visual de colores según tu estándar
         $color = "White"
         if ($op.tecla -eq 'A') { $color = "Green" }
         elseif ($op.tecla -eq 'L' -or $op.tecla -eq 'C') { $color = "Yellow" }
@@ -267,7 +341,7 @@ while ($true) {
             Write-Centered "Switching language..." "Cyan"; Start-Sleep -Milliseconds 400
         }
         elseif ($target.StartsWith("cmd_") -or $target.StartsWith("action_")) {
-            [Console]::Clear(); Show-Header
+            [Console]::Clear()
             if ($Actions.ContainsKey($target)) {
                 & $Actions[$target]
             } else {
@@ -276,7 +350,6 @@ while ($true) {
             Pause-Menu
         }
         elseif ($null -ne $db.menus.$target) {
-            # Es un cambio de pantalla
             $currentMenu = $target
         }
     }
