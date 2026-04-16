@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.2.0)
+# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.2.1)
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -161,14 +161,13 @@ $Actions = @{
     "cmd_clean_winsxs" = { dism /online /cleanup-image /StartComponentCleanup | Out-Null; Play-FinishBeep; Write-Centered "OK" "Green" }
 
     # ==========================================
-    # SOFTWARE Y ARRANQUE (Catalogo Interactivo [X])
+    # SOFTWARE Y ARRANQUE (Catálogo Interactivo con ReadKey)
     # ==========================================
     "cmd_soft_scan" = { if (Get-Command Start-MpScan -ErrorAction SilentlyContinue) { Start-MpScan -ScanType QuickScan; Write-Centered "OK" "Green" } }
     "cmd_soft_startup" = { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table }
     "cmd_soft_safe" = { Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF" "Yellow"; $sm = Read-Host; if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null }; if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null }; Write-Centered "OK" "Green" }
     
     "cmd_soft_catalog" = {
-        # LISTA MAESTRA DE APLICACIONES (Puedes agregar más aquí)
         $apps = @(
             @{ID="1"; Name="Google Chrome"; Winget="Google.Chrome"},
             @{ID="2"; Name="Mozilla Firefox"; Winget="Mozilla.Firefox"},
@@ -194,7 +193,18 @@ $Actions = @{
             Write-Centered "I. Iniciar Instalacion de seleccionados" "Green"
             Write-Centered "0. Cancelar y Volver" "Gray"
             
-            $input = (Read-Host "`n Ingrese numero para marcar/desmarcar").ToUpper()
+            Write-Host "`n"
+            Write-Host (" " * 30) "+ $($db.diccionario.option.$global:lang) " -ForegroundColor Gray -NoNewline
+            
+            try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
+            $input = $null
+            while ($true) {
+                try {
+                    $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                    if ($k.Character -match '[a-zA-Z0-9]') { $input = $k.Character.ToString().ToUpper(); Write-Host $input -ForegroundColor Cyan; break }
+                } catch { $input = (Read-Host).ToUpper(); break }
+            }
+            Start-Sleep -Milliseconds 150
             
             if ($input -eq '0') { break }
             if ($input -eq 'E') { $selected.Clear(); $selected.AddRange(@("1","3","4")) }
@@ -322,18 +332,35 @@ while ($true) {
 
     if ($null -ne $menuData.titulo) { Write-Centered "=== $($menuData.titulo.$l) ===" "Cyan"; Write-Host "`n" }
 
+    # Lógica de separación visual (Agrupa los números arriba, letras abajo)
+    $mainOps = @()
+    $extraOps = @()
     foreach ($op in $menuData.opciones) {
+        if ($op.tecla -match '^[1-9]$') { $mainOps += $op }
+        else { $extraOps += $op }
+    }
+
+    # Renderiza opciones principales
+    foreach ($op in $mainOps) {
         $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
-        $color = "White"
-        if ($op.tecla -eq 'A') { $color = "Green" }
-        elseif ($op.tecla -eq 'L' -or $op.tecla -eq 'C') { $color = "Yellow" }
-        elseif ($op.tecla -eq '0') { $color = "Gray" }
+        $color = if ($op.color) { $op.color } else { "White" }
         Write-Centered " $($op.tecla). $label " $color
+    }
+
+    # Renderiza separador visual y opciones extra
+    if ($extraOps.Count -gt 0) {
+        Write-Host "`n"
+        foreach ($op in $extraOps) {
+            $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
+            $color = if ($op.color) { $op.color } else { "White" }
+            Write-Centered " $($op.tecla). $label " $color
+        }
     }
 
     Write-Host "`n"; Write-Centered ("-" * 80) "Gray"
     Write-Host (" " * 46) "+ $($db.diccionario.option.$l) " -ForegroundColor Gray -NoNewline
     
+    # Input de 1 sola tecla (Zero-Enter)
     try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
     $key = $null
     while ($true) {
@@ -346,7 +373,9 @@ while ($true) {
             }
         } catch { $key = (Read-Host).ToUpper(); break }
     }
+    Start-Sleep -Milliseconds 150 # Pausa visual
 
+    # Ruteo Logico
     $selectedOption = $null
     foreach ($op in $menuData.opciones) {
         if ($op.tecla.ToUpper() -eq $key) { $selectedOption = $op; break }
