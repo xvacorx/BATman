@@ -1,0 +1,395 @@
+{
+    "config": {
+        "version": "11.0",
+        "default_lang": "es"
+    },
+    "diccionario": {
+        "title": {
+            "es": "TOOLBOX TECNICO PRO - By Viktor",
+            "en": "TECH TOOLBOX PRO - By Viktor"
+        },
+        "legend": {
+            "es": "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Borrado/Reset]",
+            "en": "[White: Safe/Info] | [Yellow: Advanced] | [Red: Delete/Reset]"
+        },
+        "option": {
+            "es": "Opcion:",
+            "en": "Option:"
+        }
+    },
+    "menus": {
+        "principal": {
+            "titulo": null,
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Diagnostico e Info de Sistema",
+                    "label_en": "Diagnostics & System Info",
+                    "target": "menu_diag"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Reparacion y Solucion de Errores",
+                    "label_en": "Repair & Error Solutions",
+                    "target": "menu_rep"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Redes y Conectividad",
+                    "label_en": "Network & Connectivity",
+                    "target": "menu_net"
+                },
+                {
+                    "tecla": "4",
+                    "label_es": "Limpieza y Mantenimiento",
+                    "label_en": "Cleaning & Maintenance",
+                    "target": "menu_clean"
+                },
+                {
+                    "tecla": "5",
+                    "label_es": "Gestor de Software y Arranque",
+                    "label_en": "Software & Startup Manager",
+                    "target": "menu_soft"
+                },
+                {
+                    "tecla": "6",
+                    "label_es": "Optimizaciones y Atajos Clasicos",
+                    "label_en": "Optimizations & Classic Shortcuts",
+                    "target": "menu_opt"
+                },
+                {
+                    "tecla": "A",
+                    "label_es": "MODO AUTOMATICO",
+                    "label_en": "AUTOMATIC MODE",
+                    "target": "menu_auto"
+                },
+                {
+                    "tecla": "L",
+                    "label_es": "CAMBIAR IDIOMA (ES/EN)",
+                    "label_en": "CHANGE LANGUAGE (ES/EN)",
+                    "target": "sys_lang_toggle"
+                },
+                {
+                    "tecla": "C",
+                    "label_es": "Creditos (GitHub)",
+                    "label_en": "Credits (GitHub)",
+                    "target": "action_credits"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Salir",
+                    "label_en": "Exit",
+                    "target": "sys_exit"
+                }
+            ]
+        },
+        "menu_diag": {
+            "titulo": {
+                "es": "DIAGNOSTICO E INFO DE SISTEMA",
+                "en": "DIAGNOSTICS & SYSTEM INFO"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Resumen de Sistema (Hardware, Alerta Disco, Uptime)",
+                    "label_en": "System Summary (Hardware, Disk Alert, Uptime)",
+                    "target": "cmd_diag_sysinfo"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Estado de Licencia (Activacion real)",
+                    "label_en": "License Status (Actual Activation)",
+                    "target": "cmd_diag_lic"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Ver Ultimos Pantallazos Azules (BSOD)",
+                    "label_en": "View Last Blue Screens (BSOD)",
+                    "target": "cmd_diag_bsod"
+                },
+                {
+                    "tecla": "4",
+                    "label_es": "Ver Salud de Discos y Tipo (SSD/HDD)",
+                    "label_en": "View Disk Health and Type (SSD/HDD)",
+                    "target": "cmd_diag_disk"
+                },
+                {
+                    "tecla": "5",
+                    "label_es": "Generar Reporte de Bateria (HTML)",
+                    "label_en": "Generate Battery Report (HTML)",
+                    "target": "cmd_diag_batt"
+                },
+                {
+                    "tecla": "6",
+                    "label_es": "Exportar Inventario de PC (TXT)",
+                    "label_en": "Export PC Inventory (TXT)",
+                    "target": "cmd_diag_inv"
+                },
+                {
+                    "tecla": "7",
+                    "label_es": "Ver Historial de Auditoria Local (Logs)",
+                    "label_en": "View Local Audit History (Logs)",
+                    "target": "cmd_diag_logs"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
+                    "target": "principal"
+                }
+            ]
+        },
+        "menu_rep": {
+            "titulo": {
+                "es": "REPARACION Y SOLUCION DE ERRORES",
+                "en": "REPAIR & ERROR SOLUTIONS"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Reparar Imagen de Windows (SFC + DISM)",
+                    "label_en": "Repair Windows Image (SFC + DISM)",
+                    "target": "cmd_rep_sfc"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Programar Reparacion de Disco (CHKDSK)",
+                    "label_en": "Schedule Disk Repair (CHKDSK)",
+                    "target": "cmd_rep_chkdsk"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Crear Punto de Restauracion Manual",
+                    "label_en": "Create Manual Restore Point",
+                    "target": "cmd_rep_restore"
+                },
+                {
+                    "tecla": "4",
+                    "label_es": "Destrabar Cola de Impresion",
+                    "label_en": "Clear Print Spooler (Unjam Printer)",
+                    "target": "cmd_rep_spool"
+                },
+                {
+                    "tecla": "5",
+                    "label_es": "Reconstruir Cache de Iconos",
+                    "label_en": "Rebuild Icon Cache",
+                    "target": "cmd_rep_icons"
+                },
+                {
+                    "tecla": "6",
+                    "label_es": "Forzar Sincronizacion de Hora",
+                    "label_en": "Force Clock Synchronization",
+                    "target": "cmd_rep_time"
+                },
+                {
+                    "tecla": "7",
+                    "label_es": "Hard Reset Windows Update",
+                    "label_en": "Hard Reset Windows Update",
+                    "target": "cmd_rep_wu"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
+                    "target": "principal"
+                }
+            ]
+        },
+        "menu_net": {
+            "titulo": {
+                "es": "REDES Y CONECTIVIDAD",
+                "en": "NETWORK & CONNECTIVITY"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Resetear Stack de Red Completo",
+                    "label_en": "Full Network Stack Reset",
+                    "target": "cmd_net_reset"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Extraer Claves Wi-Fi Guardadas",
+                    "label_en": "Extract Saved Wi-Fi Passwords",
+                    "target": "cmd_net_wifi"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Test de Conectividad e Info IP",
+                    "label_en": "Connectivity Test & IP Info",
+                    "target": "cmd_net_ip"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
+                    "target": "principal"
+                }
+            ]
+        },
+        "menu_clean": {
+            "titulo": {
+                "es": "MANTENIMIENTO Y LIMPIEZA",
+                "en": "CLEANING & MAINTENANCE"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Borrar Archivos Temporales, Cache y Papelera",
+                    "label_en": "Clear Temp Files, Cache & Trash",
+                    "target": "cmd_clean_temp"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Purgar Visor de Eventos (Borra TODOS los Logs)",
+                    "label_en": "Purge Event Viewer (Clears ALL Logs)",
+                    "target": "cmd_clean_logs"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Limpieza Profunda de Windows Update (WinSxS)",
+                    "label_en": "Deep Windows Update Cleanup (WinSxS)",
+                    "target": "cmd_clean_winsxs"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
+                    "target": "principal"
+                }
+            ]
+        },
+        "menu_soft": {
+            "titulo": {
+                "es": "SOFTWARE Y ARRANQUE",
+                "en": "SOFTWARE & STARTUP"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Gestor de Instalaciones (Apps y Utilidades)",
+                    "label_en": "App Installation Manager (Winget)",
+                    "target": "cmd_soft_install"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Actualizador Global de Software (Winget)",
+                    "label_en": "Global Software Updater (Winget)",
+                    "target": "cmd_soft_update"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Escaneo Rapido Antivirus (Windows Defender)",
+                    "label_en": "Quick Antivirus Scan (Windows Defender)",
+                    "target": "cmd_soft_scan"
+                },
+                {
+                    "tecla": "4",
+                    "label_es": "Ver Programas que Inician con Windows",
+                    "label_en": "View Programs that Start with Windows",
+                    "target": "cmd_soft_startup"
+                },
+                {
+                    "tecla": "5",
+                    "label_es": "Alternar Modo Seguro (Safe Mode)",
+                    "label_en": "Toggle Safe Mode",
+                    "target": "cmd_soft_safe"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
+                    "target": "principal"
+                }
+            ]
+        },
+        "menu_opt": {
+            "titulo": {
+                "es": "OPTIMIZACIONES Y ATAJOS CLASICOS",
+                "en": "OPTIMIZATIONS & CLASSIC SHORTCUTS"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Deshabilitar Inicio Rapido (Fast Startup)",
+                    "label_en": "Disable Fast Startup (Clean reboots)",
+                    "target": "cmd_opt_fastoff"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Habilitar Inicio Rapido (Fast Startup)",
+                    "label_en": "Enable Fast Startup",
+                    "target": "cmd_opt_faston"
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Generar acceso 'God Mode' en Escritorio",
+                    "label_en": "Generate 'God Mode' shortcut on Desktop",
+                    "target": "cmd_opt_godmode"
+                },
+                {
+                    "tecla": "4",
+                    "label_es": "Aniquilar Bloatware (Desinstalar basura de Windows)",
+                    "label_en": "Annihilate Bloatware (Uninstall Windows junk)",
+                    "target": "cmd_opt_bloat"
+                },
+                {
+                    "tecla": "5",
+                    "label_es": "Panel Control",
+                    "label_en": "Control Panel",
+                    "target": "cmd_opt_cpl"
+                },
+                {
+                    "tecla": "6",
+                    "label_es": "Adm Dispositivos",
+                    "label_en": "Device Manager",
+                    "target": "cmd_opt_dev"
+                },
+                {
+                    "tecla": "7",
+                    "label_es": "Redes",
+                    "label_en": "Network Adapters",
+                    "target": "cmd_opt_net"
+                },
+                {
+                    "tecla": "8",
+                    "label_es": "Programas",
+                    "label_en": "Uninstall Programs",
+                    "target": "cmd_opt_app"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
+                    "target": "principal"
+                }
+            ]
+        },
+        "menu_auto": {
+            "titulo": {
+                "es": "MANTENIMIENTO AUTOMATICO...",
+                "en": "AUTOMATIC MAINTENANCE..."
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Ejecutar y Volver al Menu",
+                    "label_en": "Run and Return to Menu",
+                    "target": "cmd_auto_run"
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Ejecutar y CERRAR Toolbox",
+                    "label_en": "Run and CLOSE Toolbox",
+                    "target": "cmd_auto_run_exit"
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver",
+                    "label_en": "Go Back",
+                    "target": "principal"
+                }
+            ]
+        }
+    }
+}

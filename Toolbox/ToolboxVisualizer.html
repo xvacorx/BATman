@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chroma Cat DTC - Direct-To-Console Designer</title>
+    <style>
+        :root {
+            --bg-main: #0a0a0e;
+            --bg-panel: #16161f;
+            --bg-card: #20202e;
+            --accent-cyan: #00f3ff;
+            --accent-pink: #ff00ea;
+            --text-main: #e0e0e0;
+            --text-muted: #8888aa;
+            --error: #ff3366;
+            --success: #00ff9d;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- TOP BAR --- */
+        .topbar {
+            background-color: var(--bg-panel);
+            padding: 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-pink);
+            box-shadow: 0 4px 15px rgba(255, 0, 234, 0.1);
+        }
+
+        .brand {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand span {
+            color: var(--accent-pink);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 15px;
+        }
+
+        button,
+        .btn-file {
+            background-color: transparent;
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+
+        button:hover,
+        .btn-file:hover {
+            background-color: var(--accent-cyan);
+            color: #000;
+        }
+
+        .btn-export {
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .btn-export:hover {
+            background-color: var(--success);
+            color: #000;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* --- WORKSPACE --- */
+        .workspace {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 55px);
+            width: 100%;
+        }
+
+        /* --- CONSOLA SIMULADA (Izquierda) --- */
+        .console-workspace {
+            flex: 2;
+            padding: 10px 20px 20px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-right: 1px solid #334;
+        }
+
+        .status-bar {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-family: monospace;
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .console-container {
+            background-color: #000000;
+            width: 100%;
+            max-width: 900px;
+            flex: 1;
+            border: 2px solid #333;
+            border-radius: 4px;
+            padding: 20px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 16px;
+            overflow-y: auto;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .line {
+            display: block;
+            text-align: center;
+            margin: 4px 0;
+            white-space: pre;
+        }
+
+        .prompt-line {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .editable {
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .editable:hover {
+            background-color: var(--bg-card);
+            border-radius: 3px;
+        }
+
+        /* Colores PS */
+        .color-white {
+            color: #ffffff;
+        }
+
+        .color-cyan {
+            color: #00ffff;
+        }
+
+        .color-yellow {
+            color: #ffff00;
+        }
+
+        .color-green {
+            color: #00ff00;
+        }
+
+        .color-red {
+            color: #ff0000;
+        }
+
+        .color-gray {
+            color: #aaaaaa;
+        }
+
+        .color-blue-bg {
+            background-color: #0000aa;
+            color: white;
+            padding: 0 10px;
+        }
+
+        /* --- INSPECTOR (Centro) --- */
+        .inspector {
+            flex: 1;
+            background-color: var(--bg-panel);
+            border-right: 1px solid #334;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 300px;
+        }
+
+        .panel-title {
+            color: var(--accent-cyan);
+            border-bottom: 2px solid var(--accent-cyan);
+            padding-bottom: 5px;
+            margin: 0;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        input[type="text"] {
+            background-color: #0d0d12;
+            border: 1px solid #334;
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        /* --- MAPA DE FLUJO (Derecha) --- */
+        .flow-container {
+            flex: 1;
+            background-color: var(--bg-panel);
+            padding: 20px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            min-width: 300px;
+        }
+
+        .flow-title {
+            color: var(--accent-pink);
+            font-size: 1.1rem;
+            border-bottom: 2px solid var(--accent-pink);
+            padding-bottom: 5px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        ul.tree {
+            list-style-type: none;
+            padding-left: 15px;
+            border-left: 1px dashed #444;
+            margin-top: 5px;
+        }
+
+        .node-menu {
+            color: #ffffff;
+            font-weight: bold;
+            margin-top: 15px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            display: inline-block;
+            cursor: pointer;
+            border: 1px solid #334;
+        }
+
+        .node-menu:hover {
+            background-color: var(--bg-card);
+            border-color: var(--accent-cyan);
+        }
+
+        .node-active {
+            background-color: #004400;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+        }
+
+        .node-target-menu {
+            color: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        .node-target-menu:hover {
+            text-decoration: underline;
+        }
+
+        .node-target-cmd {
+            color: #ffff00;
+        }
+
+        .node-target-sys {
+            color: #ff5555;
+        }
+
+        .node-error {
+            color: var(--error);
+            font-weight: bold;
+            background-color: rgba(255, 0, 0, 0.2);
+            padding: 0 4px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar">
+        <div class="brand">🦇 CHROMA CAT DTC <span>DESIGNER</span></div>
+        <div class="toolbar">
+            <label class="btn-file">
+                📂 Cargar menu.json
+                <input type="file" id="jsonLoader" accept=".json">
+            </label>
+            <button class="btn-export" onclick="exportJSON()">💾 Exportar a Producción (.json)</button>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="console-workspace">
+            <div id="statusBar" class="status-bar">Toolbox V11 - DTC View</div>
+            <div class="console-container" id="console">
+                <div class="line color-gray">Esperando archivo menu.json...</div>
+            </div>
+        </div>
+
+        <div class="inspector" id="inspector">
+            <h3 class="panel-title">Inspector Direct-To-Console</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top:5px;">Hacé clic en CUALQUIER elemento de
+                la consola para editarlo, o creá submenús desde aquí.</p>
+        </div>
+
+        <div class="flow-container" id="flow">
+            <h3 class="flow-title">🕸️ Mapa de Arquitectura</h3>
+            <div id="flow-content" style="color: #888;">Carga un JSON para visualizar el árbol.</div>
+        </div>
+    </div>
+
+    <script>
+        // Plantilla Base
+        let db = {
+            "config": { "version": "11.0", "default_lang": "es" },
+            "diccionario": {
+                "title": { "es": "TOOLBOX TECNICO PRO - By Viktor", "en": "TECH TOOLBOX PRO - By Viktor" },
+                "legend": { "es": "[Blanco: Seguro] | [Amarillo: Avanzado] | [Rojo: Borrado/Reset]", "en": "[White: Safe] | [Yellow: Advanced] | [Red: Delete/Reset]" },
+                "option": { "es": "Opcion:", "en": "Option:" }
+            },
+            "menus": {
+                "principal": {
+                    "titulo": null,
+                    "opciones": [
+                        { "tecla": "A", "label_es": "MODO AUTOMATICO", "label_en": "AUTOMATIC MODE", "target": "cmd_auto" },
+                        { "tecla": "0", "label_es": "Salir", "label_en": "Exit", "target": "sys_exit" }
+                    ]
+                }
+            }
+        };
+
+        let currentLang = 'es';
+        let currentViewMenuId = 'principal';
+        let isWaitingForInput = false;
+
+        // --- INICIALIZACIÓN ---
+        document.getElementById('jsonLoader').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    db = JSON.parse(e.target.result);
+                    currentLang = db.config.default_lang || 'es';
+                    renderTerminal('principal');
+                    renderInspectorMainMenu();
+                } catch (err) { alert("Error crítico en JSON: " + err); }
+            };
+            reader.readAsText(file);
+        });
+
+        // --- TECLADO ---
+        document.addEventListener('keydown', function (event) {
+            if (!isWaitingForInput || !db) return;
+            if (event.ctrlKey || event.altKey || event.metaKey || event.key.length > 1) return;
+
+            const pressedKey = event.key.toUpperCase();
+            const currentMenuData = db.menus[currentViewMenuId];
+            const option = currentMenuData.opciones.find(op => op.tecla.toUpperCase() === pressedKey);
+
+            if (option) {
+                if (option.target === 'sys_lang_toggle') { currentLang = currentLang === 'es' ? 'en' : 'es'; renderTerminal(currentViewMenuId); }
+                else if (option.target === 'sys_exit') { printLine("\nCerrando Toolbox...", "color-gray"); isWaitingForInput = false; }
+                else if (option.target.startsWith('cmd_') || option.target.startsWith('action_')) {
+                    isWaitingForInput = false; printLine(`\n>> Ejecutando código: ${option.target}...`, "color-green");
+                    setTimeout(() => { renderTerminal(currentViewMenuId); }, 1000);
+                }
+                else { renderTerminal(option.target); }
+            }
+        });
+
+        // --- RENDER TERMINAL ---
+        function renderTerminal(menuId) {
+            if (!db.menus[menuId]) {
+                printLine(`\n[!] ERROR LINTER: El menú '${menuId}' no existe.`, "color-red");
+                renderInspectorMainMenu();
+                return;
+            }
+
+            currentViewMenuId = menuId;
+            const menuData = db.menus[menuId];
+            const dic = db.diccionario;
+            const consoleDiv = document.getElementById('console');
+            consoleDiv.innerHTML = '';
+
+            document.getElementById('statusBar').innerText = `Toolbox V11 | Menú: ${menuId} | Idioma: ${currentLang.toUpperCase()}`;
+
+            const printEditableLine = (text, colorClass, dicKey, type) => {
+                const div = document.createElement('div');
+                div.className = `line editable ${colorClass}`; div.innerText = text;
+                div.onclick = () => openFocusedEditor({ type: type, dicKey: dicKey });
+                consoleDiv.appendChild(div);
+            };
+
+            printLine("  _______ ____   ____  _      ____   ______  __ ", "color-cyan");
+            printLine(" |__   __/ __ \\ / __ \\| |    |  _ \\ / __ \\ \\/ / ", "color-cyan");
+            printLine("    | | | |  | | |  | | |    | |_) | |  | \\  /  ", "color-cyan");
+            printLine("    | | | |  | | |  | | |    |  _ <| |  | /  \\  ", "color-cyan");
+            printLine("    |_|  \\____/ \\____/|______|____/ \\____/_/\\_\\ ", "color-cyan");
+            printLine(""); printLine("=".repeat(80), "color-gray");
+            printEditableLine(`              ${dic.title[currentLang]}              `, "color-blue-bg", 'title', 'diccionario');
+            printLine("=".repeat(80), "color-gray");
+            printEditableLine(dic.legend[currentLang], "color-gray", 'legend', 'diccionario');
+            printLine("");
+
+            if (menuData.titulo && menuData.titulo[currentLang]) {
+                printEditableLine(`=== ${menuData.titulo[currentLang]} ===`, "color-cyan", 'titulo', 'menutitle');
+                printLine("");
+            } else if (currentViewMenuId !== 'principal') {
+                printEditableLine(`=== [Hacé clic para agregar título] ===`, "color-gray", 'titulo', 'menutitle_none');
+                printLine("");
+            }
+
+            menuData.opciones.forEach((op, index) => {
+                const label = currentLang === 'es' ? op.label_es : op.label_en;
+                let color = "color-white";
+                if (op.tecla === 'A') color = "color-green";
+                if (op.tecla === 'L' || op.tecla === 'C' || op.target.startsWith('sys_')) color = "color-yellow";
+                if (op.tecla === '0' || op.target === 'sys_exit') color = "color-gray";
+
+                const div = document.createElement('div');
+                div.className = `line editable ${color}`; div.innerText = ` ${op.tecla}. ${label} `;
+                div.onclick = () => openFocusedEditor({ type: 'opcion', index: index });
+                consoleDiv.appendChild(div);
+            });
+
+            printLine(""); printLine("-".repeat(80), "color-gray");
+            const pLine = document.createElement('div'); pLine.className = 'line color-gray prompt-line';
+            const optSpan = document.createElement('span'); optSpan.className = 'editable color-gray';
+            optSpan.innerText = `+ ${dic.option[currentLang]} `;
+            optSpan.onclick = () => openFocusedEditor({ type: 'diccionario', dicKey: 'option' });
+            pLine.appendChild(optSpan); pLine.innerHTML += `<span id="prompt-input" class="blink">_</span>`;
+            consoleDiv.appendChild(pLine);
+
+            isWaitingForInput = true;
+            renderFlowMap(); // Actualiza el mapa derecho
+        }
+
+        function printLine(text, colorClass = 'color-white') {
+            const div = document.createElement('div'); div.className = `line ${colorClass}`; div.innerText = text;
+            document.getElementById('console').appendChild(div);
+        }
+
+        // --- MAPA DE FLUJO (Derecha) ---
+        function renderFlowMap() {
+            const flowDiv = document.getElementById('flow-content');
+            let html = '';
+
+            for (const key in db.menus) {
+                const isCurrent = key === currentViewMenuId ? 'node-active' : '';
+                // Al hacer clic en el nombre del menú en el mapa, salta a él
+                html += `<div class="node-menu ${isCurrent}" onclick="renderTerminal('${key}')">🗂️ ${key}</div>`;
+                html += `<ul class="tree">`;
+
+                db.menus[key].opciones.forEach(op => {
+                    let targetClass = ''; let typeIcon = ''; let errorTag = '';
+
+                    if (op.target.startsWith('menu_') || op.target === 'principal') {
+                        targetClass = 'node-target-menu'; typeIcon = '🔗';
+                        // Linter Check
+                        if (!db.menus[op.target]) errorTag = `<span class="node-error">! ROTO</span>`;
+                    }
+                    else if (op.target.startsWith('cmd_') || op.target.startsWith('action_')) { targetClass = 'node-target-cmd'; typeIcon = '⚡'; }
+                    else { targetClass = 'node-target-sys'; typeIcon = '⚙️'; }
+
+                    html += `<li><span style="color:#aaa;">[${op.tecla}]</span> ${op.label_es} <br> 
+                             └─> <span class="${targetClass}" onclick="if('${targetClass}'==='node-target-menu') renderTerminal('${op.target}')">${typeIcon} ${op.target} ${errorTag}</span></li><br>`;
+                });
+                html += `</ul>`;
+            }
+            flowDiv.innerHTML = html;
+        }
+
+        // --- INSPECTOR (Centro) ---
+        function openFocusedEditor(context) {
+            isWaitingForInput = false; const inspector = document.getElementById('inspector');
+            let html = '';
+
+            if (context.type === 'diccionario') {
+                const entry = db.diccionario[context.dicKey];
+                html = `
+                    <h3 class="panel-title">Editor Global</h3>
+                    <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Variable: [${context.dicKey}]</div>
+                    <div class="form-group"><label>Español (ES)</label><input type="text" id="edit_es" value="${entry.es}"></div>
+                    <div class="form-group"><label>Inglés (EN)</label><input type="text" id="edit_en" value="${entry.en}"></div>
+                    <button onclick="saveDicEditor('${context.dicKey}')" style="margin-top:10px; border-color:var(--success); color:var(--success);">Guardar Cambios</button>
+                    <button onclick="cancelEditor()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>
+                `;
+            }
+            else if (context.type === 'menutitle' || context.type === 'menutitle_none') {
+                const m = db.menus[currentViewMenuId];
+                html = `
+                    <h3 class="panel-title">Título del Menú</h3>
+                    <div class="form-group"><label>Español (Dejar vacío para ocultar)</label><input type="text" id="edit_tit_es" value="${m.titulo ? m.titulo.es : ''}"></div>
+                    <div class="form-group"><label>Inglés</label><input type="text" id="edit_tit_en" value="${m.titulo ? m.titulo.en : ''}"></div>
+                    <button onclick="saveTitleEditor()" style="margin-top:10px; border-color:var(--success); color:var(--success);">Guardar Cambios</button>
+                    <button onclick="cancelEditor()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>
+                `;
+            }
+            else if (context.type === 'opcion') {
+                const op = db.menus[currentViewMenuId].opciones[context.index];
+                html = `
+                    <h3 class="panel-title">Editor de Opción</h3>
+                    <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">Tecla ${op.tecla} del menú [${currentViewMenuId}]</div>
+                    <div class="form-group"><label>Tecla (Ej: 1, A)</label><input type="text" id="edit_op_key" value="${op.tecla}"></div>
+                    <div class="form-group"><label>Español</label><input type="text" id="edit_op_es" value="${op.label_es}"></div>
+                    <div class="form-group"><label>Inglés</label><input type="text" id="edit_op_en" value="${op.label_en}"></div>
+                    <div class="form-group"><label>Target (Destino)</label><input type="text" id="edit_op_target" value="${op.target}" style="color:var(--accent-pink);"></div>
+                    
+                    <button onclick="saveOptionEditor(${context.index})" style="margin-top:10px; border-color:var(--success); color:var(--success);">Guardar Cambios</button>
+                    <button onclick="addOptionBelow(${context.index})" style="border-color:var(--accent-cyan); color:var(--accent-cyan);">+ Agregar Nueva Opción Abajo</button>
+                    <button onclick="deleteOption('${context.index}')" style="border-color:var(--error); color:var(--error);">✖ Eliminar Opción</button>
+                    <button onclick="cancelEditor()" style="border-color:var(--text-muted); color:var(--text-muted);">Cancelar</button>
+                `;
+            }
+            inspector.innerHTML = html;
+        }
+
+        function cancelEditor() { renderTerminal(currentViewMenuId); renderInspectorMainMenu(); }
+        function saveDicEditor(key) { db.diccionario[key].es = document.getElementById('edit_es').value; db.diccionario[key].en = document.getElementById('edit_en').value; cancelEditor(); }
+        function saveTitleEditor() {
+            const es = document.getElementById('edit_tit_es').value; const en = document.getElementById('edit_tit_en').value;
+            db.menus[currentViewMenuId].titulo = (es || en) ? { es: es, en: en } : null; cancelEditor();
+        }
+        function saveOptionEditor(index) {
+            const op = db.menus[currentViewMenuId].opciones[index];
+            op.tecla = document.getElementById('edit_op_key').value; op.label_es = document.getElementById('edit_op_es').value;
+            op.label_en = document.getElementById('edit_op_en').value; op.target = document.getElementById('edit_op_target').value;
+            cancelEditor();
+        }
+        function deleteOption(index) { if (confirm("¿Eliminar esta opción?")) { db.menus[currentViewMenuId].opciones.splice(index, 1); cancelEditor(); } }
+        function addOptionBelow(index) { db.menus[currentViewMenuId].opciones.splice(index + 1, 0, { "tecla": "?", "label_es": "Nueva Opción", "label_en": "New Option", "target": "principal" }); cancelEditor(); }
+
+        function renderInspectorMainMenu() {
+            document.getElementById('inspector').innerHTML = `
+                <h3 class="panel-title">Herramientas Generales</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Hacé clic en la consola para editar una opción, o usá estas herramientas rápidas.</p>
+                <button onclick="addNewMenuSubmenu()" style="border-style:dashed; margin-top:10px;">+ Crear Nuevo Submenú Vacío</button>
+            `;
+        }
+
+        function addNewMenuSubmenu() {
+            const newId = prompt("Escribí el ID del nuevo Submenú\n(Sin espacios, Ej: menu_redes_con).", "menu_nuevo");
+            if (!newId || newId.trim() === '') return;
+            const cleanId = newId.trim().replace(/\s+/g, '_').toLowerCase();
+            if (db.menus[cleanId]) { alert("Ese ID ya existe."); return; }
+            db.menus[cleanId] = { "titulo": { "es": "NUEVO TÍTULO", "en": "NEW TITLE" }, "opciones": [{ "tecla": "0", "label_es": "Volver", "label_en": "Back", "target": "principal" }] };
+            renderTerminal(cleanId); renderInspectorMainMenu();
+        }
+
+        // --- EXPORTAR ---
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "menu.json");
+            document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+        }
+
+        renderTerminal('principal'); renderInspectorMainMenu();
+    </script>
+</body>
+
+</html>
