@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.2.1)
+# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.2.2)
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -35,10 +35,28 @@ function Write-Centered ($text, $color="White", $bg="Black") {
     Write-Host $text -ForegroundColor $color -BackgroundColor $bg
 }
 
+# NUEVO MOTOR ZERO-ENTER BLINDADO
+function Read-SingleKey {
+    try {
+        $Host.UI.RawUI.FlushInputBuffer()
+        while ($true) {
+            $keyInfo = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            if ($keyInfo.Character -match '^[a-zA-Z0-9]$') {
+                return $keyInfo.Character.ToString().ToUpper()
+            }
+        }
+    } catch {
+        # Fallback de emergencia si el entorno no soporta ReadKey
+        $input = Read-Host
+        if ($input.Length -gt 0) { return $input.Substring(0,1).ToUpper() }
+        return ""
+    }
+}
+
 function Pause-Menu { 
     Write-Host "`n"
     Write-Centered $db.diccionario.press_key.$global:lang "Gray"
-    try { $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch { Start-Sleep -Seconds 2 } 
+    $null = Read-SingleKey
 }
 
 function Show-Header {
@@ -161,11 +179,19 @@ $Actions = @{
     "cmd_clean_winsxs" = { dism /online /cleanup-image /StartComponentCleanup | Out-Null; Play-FinishBeep; Write-Centered "OK" "Green" }
 
     # ==========================================
-    # SOFTWARE Y ARRANQUE (Catálogo Interactivo con ReadKey)
+    # SOFTWARE Y ARRANQUE
     # ==========================================
     "cmd_soft_scan" = { if (Get-Command Start-MpScan -ErrorAction SilentlyContinue) { Start-MpScan -ScanType QuickScan; Write-Centered "OK" "Green" } }
     "cmd_soft_startup" = { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table }
-    "cmd_soft_safe" = { Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF" "Yellow"; $sm = Read-Host; if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null }; if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null }; Write-Centered "OK" "Green" }
+    
+    "cmd_soft_safe" = { 
+        Write-Host "`n"; Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF | 0. Cancelar" "Yellow"
+        Write-Host (" " * 46) "+ $($db.diccionario.option.$global:lang) " -ForegroundColor Gray -NoNewline
+        $sm = Read-SingleKey
+        Write-Host $sm -ForegroundColor Cyan
+        if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null; Write-Centered "OK" "Green" }
+        if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null; Write-Centered "OK" "Green" }
+    }
     
     "cmd_soft_catalog" = {
         $apps = @(
@@ -196,14 +222,8 @@ $Actions = @{
             Write-Host "`n"
             Write-Host (" " * 30) "+ $($db.diccionario.option.$global:lang) " -ForegroundColor Gray -NoNewline
             
-            try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
-            $input = $null
-            while ($true) {
-                try {
-                    $k = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-                    if ($k.Character -match '[a-zA-Z0-9]') { $input = $k.Character.ToString().ToUpper(); Write-Host $input -ForegroundColor Cyan; break }
-                } catch { $input = (Read-Host).ToUpper(); break }
-            }
+            $input = Read-SingleKey
+            Write-Host $input -ForegroundColor Cyan
             Start-Sleep -Milliseconds 150
             
             if ($input -eq '0') { break }
@@ -360,20 +380,10 @@ while ($true) {
     Write-Host "`n"; Write-Centered ("-" * 80) "Gray"
     Write-Host (" " * 46) "+ $($db.diccionario.option.$l) " -ForegroundColor Gray -NoNewline
     
-    # Input de 1 sola tecla (Zero-Enter)
-    try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
-    $key = $null
-    while ($true) {
-        try {
-            $keyInfo = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            if ($keyInfo.Character -match '[a-zA-Z0-9]') { 
-                $key = $keyInfo.Character.ToString().ToUpper()
-                Write-Host $key -ForegroundColor Cyan
-                break 
-            }
-        } catch { $key = (Read-Host).ToUpper(); break }
-    }
-    Start-Sleep -Milliseconds 150 # Pausa visual
+    # Input de 1 sola tecla integrado
+    $key = Read-SingleKey
+    Write-Host $key -ForegroundColor Cyan
+    Start-Sleep -Milliseconds 150 # Pausa visual para sentir el click
 
     # Ruteo Logico
     $selectedOption = $null
