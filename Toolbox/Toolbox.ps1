@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - By Viktor (V1.0.3 Ultimate Global Edition)
+# TOOLBOX TECNICO PRO - By Viktor (V1.1.3 Ultimate Global Edition)
 # TinyURL: tinyurl.com/VikToolBox
 # =========================================================
 
