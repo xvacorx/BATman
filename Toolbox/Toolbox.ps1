@@ -54,8 +54,19 @@ if (Test-Path $jsonPath) {
     }
 }
 
-if ($null -eq $global:lang) { $global:lang = $db.config.default_lang }
-
+# --- LOGICA DE IDIOMA INTELIGENTE V11 ---
+if ($null -eq $global:lang) { 
+    $sysLang = (Get-Culture).TwoLetterISOLanguageName
+    
+    if ($sysLang -eq 'es') {
+        $global:lang = 'es'
+    } elseif ($sysLang -eq 'en') {
+        $global:lang = 'en'
+    } else {
+        # Si el SO está en otro idioma (ej: Francés), usamos el default del JSON
+        $global:lang = $db.config.default_lang
+    }
+}
 # --- 5. FUNCIONES GLOBALES ---
 $logPath = "C:\Windows\Logs\Toolbox_Auditoria.log"
 $PublicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
