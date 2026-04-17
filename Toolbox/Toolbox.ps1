@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.3.4)
+# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.3.5)
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -205,7 +205,7 @@ $Actions = @{
     "cmd_opt_fastoff" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force; Write-Centered "OK" "Green" }
     "cmd_opt_faston" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force; Write-Centered "OK" "Green" }
     "cmd_opt_godmode" = { $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"; if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }; Write-Centered "OK" "Green" }
-    "cmd_opt_bloat" = { $bloat = @("*bing*", "*xboxapp*", "*gethelp*"); foreach ($app in $bloat) { Get-AppxPackage -Name $app -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue }; Write-Centered "OK" "Green" }
+    "cmd_opt_bloat" = { Write-Centered "Aniquilando Bloatware..." "Yellow"; $bloat = @("*bing*", "*xboxapp*", "*gethelp*", "*solitaire*"); foreach ($app in $bloat) { Get-AppxPackage -Name $app -AllUsers 2>$null | Remove-AppxPackage -AllUsers 2>$null }; Write-Centered "OK" "Green" }
     "cmd_opt_cpl" = { Start-Process control }; "cmd_opt_dev" = { Start-Process devmgmt.msc }; "cmd_opt_net" = { Start-Process ncpa.cpl }; "cmd_opt_app" = { Start-Process appwiz.cpl }
     "cmd_opt_rename" = { $n = Read-Host " Nuevo Hostname"; if($n){ Rename-Computer -NewName $n -ErrorAction SilentlyContinue; Write-Centered "PC -> $n (Reiniciar)." "Yellow" } }
 
