@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.2.2)
+# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.2.3)
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -80,7 +80,7 @@ function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$
 function Test-Internet { if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) { return $true }; return $false }
 
 # --- 4. CARGA DE BASE DE DATOS (JSON) ---
-$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/main/Toolbox/menu.json" 
+$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/ToolboxUpdate/Toolbox/menu.json" 
 
 $jsonPath = Join-Path (Split-Path -Parent -Path $MyInvocation.MyCommand.Definition -ErrorAction SilentlyContinue) "menu.json" -ErrorAction SilentlyContinue
 if ([string]::IsNullOrEmpty($jsonPath) -or -not (Test-Path $jsonPath)) { $jsonPath = ".\menu.json" }
@@ -334,7 +334,7 @@ $Actions = @{
     "action_credits" = {
         Write-Centered "=== CREDITOS ===" "Cyan"; Write-Host "`n"
         Write-Centered "Toolbox Tecnico Pro - By Viktor" "White"
-        Write-Centered "Chroma Cat Studios" "Pink"
+        Write-Centered "Chroma Cat Studios" "Magenta"
         Write-Host "`n"; Write-Centered "GitHub: github.com/xvacorx" "Cyan"
         Start-Process "https://github.com/xvacorx"
     }
@@ -351,6 +351,15 @@ while ($true) {
     Show-Header
 
     if ($null -ne $menuData.titulo) { Write-Centered "=== $($menuData.titulo.$l) ===" "Cyan"; Write-Host "`n" }
+
+    # Renderiza la Información extra (Ej: para el Modo Automático)
+    if ($null -ne $menuData.info) {
+        foreach ($lineData in $menuData.info) {
+            $lineStr = if ($l -eq 'es') { $lineData.es } else { $lineData.en }
+            Write-Centered $lineStr "Yellow"
+        }
+        Write-Host "`n"
+    }
 
     # Lógica de separación visual (Agrupa los números arriba, letras abajo)
     $mainOps = @()
