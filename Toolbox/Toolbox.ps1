@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.3.3)
+# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.3.4)
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -61,7 +61,6 @@ function Pause-Menu {
     } catch {
         $null = Read-Host # Fallback seguro por si la consola falla
     }
-}
 }
 
 function Show-Header {
@@ -148,7 +147,31 @@ $Actions = @{
     "cmd_rep_wu" = { Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue; Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
 
     # REDES Y RDP
-    "cmd_net_reset" = { netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; ipconfig /flushdns | Out-Null; Write-Centered "OK" "Green" }
+    "cmd_net_reset" = { 
+        Write-Centered "--- RESET DE RED PROFUNDO ---" "Cyan"
+        Write-Centered "ADVERTENCIA: Esto cortara cualquier conexion remota (AnyDesk/RDP) y requiere REINICIO." "Red"
+        Write-Host (" " * 30) "+ Desea continuar? (S/N): " -ForegroundColor Gray -NoNewline
+        
+        $ans = Read-SingleKey
+        Write-Host $ans -ForegroundColor Cyan
+        
+        if ($ans -eq 'S') {
+            Write-Centered "Liberando IP y limpiando DNS..." "Yellow"
+            ipconfig /release | Out-Null
+            ipconfig /flushdns | Out-Null
+            
+            Write-Centered "Reseteando Winsock y TCP/IP..." "Yellow"
+            netsh winsock reset | Out-Null
+            netsh int ip reset c:\resetlog.txt | Out-Null
+            
+            Write-Centered "Renovando IP local..." "Yellow"
+            ipconfig /renew | Out-Null
+            
+            Write-Centered "OK! EL STACK ESTA LIMPIO. DEBES REINICIAR LA PC." "Green"
+        } else {
+            Write-Centered "Operacion cancelada por el usuario." "White"
+        }
+    }
     "cmd_net_wifi" = { $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }; foreach ($profile in $profiles) { $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }; Write-Centered "$profile : $pass" "Green" } }
     "cmd_net_ip" = { ipconfig | findstr "IPv4" | ForEach-Object { Write-Centered $_.Trim() "White" } }
     "cmd_net_gpupdate" = { Write-Centered "GPO Update..." "Yellow"; gpupdate /force | Out-Null }
