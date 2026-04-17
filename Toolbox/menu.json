@@ -1,12 +1,12 @@
 {
     "config": {
-        "version": "2.2.2",
+        "version": "2.2.3",
         "default_lang": "es"
     },
     "diccionario": {
         "title": {
-            "es": "TOOLBOX TECNICO PRO - By Viktor - V2.2.2",
-            "en": "TECH TOOLBOX PRO - By Viktor - V2.2.2"
+            "es": "TOOLBOX TECNICO PRO - By Viktor - V2.2.3",
+            "en": "TECH TOOLBOX PRO - By Viktor - V2.2.3"
         },
         "legend": {
             "es": "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Borrado/Reset]",
@@ -139,6 +139,14 @@
         },
         "menu_auto": {
             "titulo": { "es": "MANTENIMIENTO AUTOMATICO...", "en": "AUTOMATIC MAINTENANCE..." },
+            "info": [
+                { "es": "El script ejecutara secuencialmente:", "en": "The script will sequentially execute:" },
+                { "es": "1. Punto de Restauracion", "en": "1. System Restore Point" },
+                { "es": "2. Limpieza de Basura", "en": "2. Junk Cleanup" },
+                { "es": "3. Reparacion de SO (SFC/DISM)", "en": "3. OS Repair (SFC/DISM)" },
+                { "es": "4. Forzar GPO", "en": "4. Force GPO" },
+                { "es": "5. Sincronizacion de Hora", "en": "5. Time Synchronization" }
+            ],
             "opciones": [
                 { "tecla": "1", "label_es": "Ejecutar y Volver al Menu", "label_en": "Run and Return to Menu", "target": "cmd_auto_run", "color": "Yellow" },
                 { "tecla": "2", "label_es": "Ejecutar y CERRAR Toolbox", "label_en": "Run and CLOSE Toolbox", "target": "cmd_auto_run_exit", "color": "Yellow" },
