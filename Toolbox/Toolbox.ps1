@@ -210,11 +210,12 @@ $Actions = @{
     "cmd_opt_rename" = { $n = Read-Host " Nuevo Hostname"; if($n){ Rename-Computer -NewName $n -ErrorAction SilentlyContinue; Write-Centered "PC -> $n (Reiniciar)." "Yellow" } }
 
     # IMPRESORAS
-    "cmd_rep_spool" = { Stop-Service Spooler -Force; Remove-Item "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service Spooler; Write-Centered "OK" "Green" }
+    "cmd_rep_spool" = { Stop-Service Spooler -Force -ErrorAction SilentlyContinue; Remove-Item "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service Spooler -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
     "cmd_print_folder" = { $p = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"; if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; Write-Centered "OK" "Green" }
-    "cmd_print_del" = { $printers = Get-Printer; $i=1; foreach($p in $printers){ Write-Host " $i. $($p.Name)"; $i++ }; $s = Read-Host " Borrar nro"; if($s){ Remove-Printer -Name $printers[[int]$s-1].Name } }
+    "cmd_print_del" = { $printers = Get-Printer; $i=1; foreach($p in $printers){ Write-Host " $i. $($p.Name)" }; $s = Read-Host " Borrar nro"; if($s){ Remove-Printer -Name $printers[[int]$s-1].Name -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" } }
+    "cmd_print_driver" = { $drivers = Get-PrinterDriver; $i=1; foreach($d in $drivers){ Write-Host " $i. $($d.Name)" }; $s = Read-Host " Borrar nro"; if($s){ Remove-PrinterDriver -Name $drivers[[int]$s-1].Name -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" } }
     "cmd_print_fw" = { Enable-NetFirewallRule -Name "FPS-ICMP4-ERQ-In" -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName "Toolbox_PrintTCP" -Direction Inbound -Protocol TCP -LocalPort 139,445 -Action Allow -ErrorAction SilentlyContinue | Out-Null; Write-Centered "OK" "Green" }
-
+    
     # IDENTIDAD
     "cmd_user_admin_on" = { net user administrator /active:yes; Write-Centered "ADMIN ON." "Green" }
     "cmd_user_admin_off" = { net user administrator /active:no; Write-Centered "ADMIN OFF." "White" }
