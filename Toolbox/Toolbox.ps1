@@ -55,7 +55,13 @@ function Read-SingleKey {
 function Pause-Menu { 
     Write-Host "`n"
     Write-Centered $db.diccionario.press_key.$global:lang "Gray"
-    $null = Read-SingleKey
+    try {
+        $Host.UI.RawUI.FlushInputBuffer()
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    } catch {
+        $null = Read-Host # Fallback seguro por si la consola falla
+    }
+}
 }
 
 function Show-Header {
