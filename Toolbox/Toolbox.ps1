@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.2.3)
+# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.3.1)
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -35,7 +35,7 @@ function Write-Centered ($text, $color="White", $bg="Black") {
     Write-Host $text -ForegroundColor $color -BackgroundColor $bg
 }
 
-# NUEVO MOTOR ZERO-ENTER BLINDADO
+# MOTOR DE TECLADO ZERO-ENTER
 function Read-SingleKey {
     try {
         $Host.UI.RawUI.FlushInputBuffer()
@@ -46,7 +46,6 @@ function Read-SingleKey {
             }
         }
     } catch {
-        # Fallback de emergencia si el entorno no soporta ReadKey
         $input = Read-Host
         if ($input.Length -gt 0) { return $input.Substring(0,1).ToUpper() }
         return ""
@@ -89,12 +88,12 @@ if (Test-Path $jsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json } 
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Iniciando Motor V11. Descargando arquitectura desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor V11 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
     } catch {
-        Write-Host "[!] FATAL ERROR: No se pudo descargar menu.json desde GitHub." -ForegroundColor Red; Pause; exit
+        Write-Host "[!] FATAL ERROR: Fallo la conexion con GitHub." -ForegroundColor Red; Pause; exit
     }
 }
 
@@ -108,309 +107,132 @@ $Accion_Limpieza = {
     $p = @("C:\Windows\Temp\*", "$env:TEMP\*", "C:\Windows\Prefetch\*")
     foreach ($i in $p) { Remove-Item $i -Recurse -Force -ErrorAction SilentlyContinue }
     Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-    if (Get-Command Optimize-Volume -ErrorAction SilentlyContinue) { Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue | Out-Null }
 }
 
 $Accion_Reparacion = { 
     if (Test-Internet) {
-        Write-Centered "--- DISM ---" "Yellow"; dism /online /cleanup-image /restorehealth; Write-Host "`n"
-        Write-Centered "--- SFC ---" "Yellow"; sfc /scannow
-    } else { Write-Centered "SIN CONEXION: Omitiendo SFC/DISM" "Red" }
+        Write-Centered "SFC & DISM..." "Yellow"; dism /online /cleanup-image /restorehealth | Out-Null; sfc /scannow | Out-Null
+    }
 }
-
-$Accion_Red = { ipconfig /release | Out-Null; netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; ipconfig /flushdns | Out-Null; ipconfig /renew | Out-Null }
 
 # --- 6. REGISTRO DE COMANDOS ($Actions) ---
 $Actions = @{
-    # ==========================================
-    # DIAGNOSTICO E INFORMACION
-    # ==========================================
+    # DIAGNOSTICO
     "cmd_diag_sysinfo" = {
         Write-Centered "--- INFO ---" "Cyan"; Write-Host "`n"
         $sysInfo = Get-WmiCim "Win32_ComputerSystem"; $cpu = (Get-WmiCim "Win32_Processor").Name
-        $os = Get-WmiCim "Win32_OperatingSystem"; try { $bootTime = $os.LastBootUpTime; if ($bootTime.GetType().Name -eq "String") { $bootTime = $os.ConvertToDateTime($bootTime) }; $timespan = New-TimeSpan -Start $bootTime -End (Get-Date); $uptimeStr = "$($timespan.Days) D, $($timespan.Hours) H" } catch { $uptimeStr = "?" }
+        $os = Get-WmiCim "Win32_OperatingSystem"; try { $bt = $os.LastBootUpTime; if ($bt.GetType().Name -eq "String") { $bt = $os.ConvertToDateTime($bt) }; $ts = New-TimeSpan -Start $bt -End (Get-Date); $uptime = "$($ts.Days) D, $($ts.Hours) H" } catch { $uptime = "?" }
         $diskC = Get-WmiCim "Win32_LogicalDisk" -Filter "DeviceID='C:'"; if ($diskC) { $free = [math]::Round($diskC.FreeSpace / 1GB, 1); $total = [math]::Round($diskC.Size / 1GB, 1) }
         Write-Centered "PC: $($sysInfo.Manufacturer) $($sysInfo.Model)" "Yellow"
-        Write-Centered "CPU: $cpu" "White"; Write-Centered "Disk C: $free GB / $total GB" "White"
-        Write-Centered "Uptime: $uptimeStr" "Green"
+        Write-Centered "CPU: $cpu" "White"; Write-Centered "Disk C: $free GB / $total GB" "White"; Write-Centered "Uptime: $uptime" "Green"
     }
     "cmd_diag_lic" = { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" } }
     "cmd_diag_bsod" = { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List }
-    "cmd_diag_disk" = { if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) { Get-PhysicalDisk | Select-Object MediaType, Model, HealthStatus | Format-Table -AutoSize | Out-String -Stream | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Write-Centered $_.Trim() "White" } } else { Get-WmiCim "Win32_DiskDrive" | Select-Object Model, Status | Out-String -Stream | ForEach-Object { Write-Centered $_.Trim() "White" } } }
+    "cmd_diag_disk" = { if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) { Get-PhysicalDisk | Select-Object MediaType, Model, HealthStatus | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Centered $_.Trim() "White" } } }
     "cmd_diag_batt" = { powercfg /batteryreport /output "$PublicDesktop\BatteryReport.html" | Out-Null; if (Test-Path "$PublicDesktop\BatteryReport.html") { Invoke-Item "$PublicDesktop\BatteryReport.html"; Write-Centered "OK" "Green" } }
     "cmd_diag_inv" = { "Inventario" | Out-File "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt" -Encoding UTF8; Write-Centered "OK" "Green" }
     "cmd_diag_logs" = { if (Test-Path $logPath) { Get-Content $logPath -Tail 15 | ForEach-Object { Write-Centered $_ "White" } } }
 
-    # ==========================================
     # REPARACION
-    # ==========================================
     "cmd_rep_sfc" = { &$Accion_Reparacion; Play-FinishBeep }
     "cmd_rep_chkdsk" = { cmd.exe /c "echo S | chkdsk C: /f" | Out-Null; Write-Centered "OK" "Green" }
     "cmd_rep_restore" = { Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Manual" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
     "cmd_rep_icons" = { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue; Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue; Start-Process explorer; Write-Centered "OK" "Green" }
     "cmd_rep_time" = { Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" } }
-    "cmd_rep_wu" = { Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
+    "cmd_rep_wu" = { Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue; Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
 
-    # ==========================================
     # REDES Y RDP
-    # ==========================================
-    "cmd_net_reset" = { &$Accion_Red; Write-Centered "OK" "Green" }
+    "cmd_net_reset" = { netsh winsock reset | Out-Null; netsh int ip reset | Out-Null; ipconfig /flushdns | Out-Null; Write-Centered "OK" "Green" }
     "cmd_net_wifi" = { $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }; foreach ($profile in $profiles) { $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }; Write-Centered "$profile : $pass" "Green" } }
-    "cmd_net_ip" = { if (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue) { Get-NetAdapter | Where-Object Status -eq 'Up' | Format-Table Name, MacAddress, LinkSpeed } else { Get-WmiCim Win32_NetworkAdapter | Where-Object NetConnectionStatus -eq 2 | Format-Table Name, MACAddress, Speed } }
-    "cmd_net_gpupdate" = { Write-Centered "Actualizando Directivas (GPO)..." "Yellow"; gpupdate /force }
-    
-    "cmd_net_rdp_on" = {
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null
-        $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" }).IPAddress | Select-Object -First 1
-        if ($ip) { $ip | Set-Clipboard; Write-Centered "RDP Habilitado. IP Local ($ip) copiada al portapapeles." "Green" } else { Write-Centered "RDP Habilitado, pero no se detecto IP." "Yellow" }
-    }
-    "cmd_net_rdp_off" = {
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1
-        Disable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null
-        Write-Centered "RDP Deshabilitado." "Red"
-    }
+    "cmd_net_ip" = { ipconfig | findstr "IPv4" | ForEach-Object { Write-Centered $_.Trim() "White" } }
+    "cmd_net_gpupdate" = { Write-Centered "GPO Update..." "Yellow"; gpupdate /force | Out-Null }
+    "cmd_net_rdp_on" = { Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0; Enable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null; $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" }).IPAddress | Select-Object -First 1; if ($ip) { $ip | Set-Clipboard; Write-Centered "RDP ON ($ip)." "Green" } }
+    "cmd_net_rdp_off" = { Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1; Disable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null; Write-Centered "RDP OFF." "Red" }
 
-    # ==========================================
     # LIMPIEZA
-    # ==========================================
     "cmd_clean_temp" = { &$Accion_Limpieza; Write-Centered "OK" "Green" }
     "cmd_clean_logs" = { wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }; Write-Centered "OK" "Green" }
-    "cmd_clean_winsxs" = { dism /online /cleanup-image /StartComponentCleanup | Out-Null; Play-FinishBeep; Write-Centered "OK" "Green" }
+    "cmd_clean_winsxs" = { dism /online /cleanup-image /StartComponentCleanup | Out-Null; Write-Centered "OK" "Green" }
 
-    # ==========================================
-    # SOFTWARE Y ARRANQUE
-    # ==========================================
+    # SOFTWARE CATALOGO
     "cmd_soft_scan" = { if (Get-Command Start-MpScan -ErrorAction SilentlyContinue) { Start-MpScan -ScanType QuickScan; Write-Centered "OK" "Green" } }
     "cmd_soft_startup" = { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table }
-    
-    "cmd_soft_safe" = { 
-        Write-Host "`n"; Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF | 0. Cancelar" "Yellow"
-        Write-Host (" " * 46) "+ $($db.diccionario.option.$global:lang) " -ForegroundColor Gray -NoNewline
-        $sm = Read-SingleKey
-        Write-Host $sm -ForegroundColor Cyan
-        if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null; Write-Centered "OK" "Green" }
-        if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null; Write-Centered "OK" "Green" }
-    }
-    
+    "cmd_soft_safe" = { Write-Host "`n"; Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF | 0. Cancelar" "Yellow"; $sm = Read-SingleKey; if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null }; if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null }; Write-Centered "OK" "Green" }
     "cmd_soft_catalog" = {
-        $apps = @(
-            @{ID="1"; Name="Google Chrome"; Winget="Google.Chrome"},
-            @{ID="2"; Name="Mozilla Firefox"; Winget="Mozilla.Firefox"},
-            @{ID="3"; Name="AnyDesk"; Winget="AnyDesk.AnyDesk"},
-            @{ID="4"; Name="7-Zip"; Winget="7zip.7zip"},
-            @{ID="5"; Name="VLC Media Player"; Winget="VideoLAN.VLC"},
-            @{ID="6"; Name="Adobe Acrobat Reader"; Winget="Adobe.Acrobat.Reader.64-bit"},
-            @{ID="7"; Name="Zoom"; Winget="Zoom.Zoom"}
-        )
+        $apps = @(@{ID="1"; Name="Chrome"; Winget="Google.Chrome"}, @{ID="2"; Name="Firefox"; Winget="Mozilla.Firefox"}, @{ID="3"; Name="AnyDesk"; Winget="AnyDesk.AnyDesk"}, @{ID="4"; Name="7-Zip"; Winget="7zip.7zip"}, @{ID="5"; Name="VLC"; Winget="VideoLAN.VLC"}, @{ID="6"; Name="Adobe Reader"; Winget="Adobe.Acrobat.Reader.64-bit"})
         $selected = New-Object System.Collections.Generic.List[string]
-        
         while ($true) {
-            [Console]::Clear()
-            Write-Centered "--- CATALOGO INTERACTIVO DE SOFTWARE ---" "Cyan"; Write-Host "`n"
-            
-            foreach ($app in $apps) {
-                $mark = if ($selected.Contains($app.ID)) { "[X]" } else { "[ ]" }
-                $color = if ($selected.Contains($app.ID)) { "Green" } else { "White" }
-                Write-Host (" " * 30 + "$mark $($app.ID). $($app.Name)") -ForegroundColor $color
-            }
-            
-            Write-Host "`n"; Write-Centered "E. Instalar Esenciales (Chrome, AnyDesk, 7-Zip)" "Yellow"
-            Write-Centered "I. Iniciar Instalacion de seleccionados" "Green"
-            Write-Centered "0. Cancelar y Volver" "Gray"
-            
-            Write-Host "`n"
-            Write-Host (" " * 30) "+ $($db.diccionario.option.$global:lang) " -ForegroundColor Gray -NoNewline
-            
-            $input = Read-SingleKey
-            Write-Host $input -ForegroundColor Cyan
-            Start-Sleep -Milliseconds 150
-            
+            [Console]::Clear(); Write-Centered "--- CATALOGO INTERACTIVO ---" "Cyan"; Write-Host "`n"
+            foreach ($app in $apps) { $mark = if ($selected.Contains($app.ID)) { "[X]" } else { "[ ]" }; Write-Host (" " * 30 + "$mark $($app.ID). $($app.Name)") -ForegroundColor (if($selected.Contains($app.ID)){"Green"}else{"White"}) }
+            Write-Host "`n"; Write-Centered "E. Esenciales | I. Instalar | 0. Volver" "Yellow"; Write-Host (" " * 30) "+ Opcion: " -NoNewline; $input = Read-SingleKey; Write-Host $input -ForegroundColor Cyan
             if ($input -eq '0') { break }
             if ($input -eq 'E') { $selected.Clear(); $selected.AddRange(@("1","3","4")) }
-            if ($input -eq 'I') {
-                if ($selected.Count -gt 0) {
-                    foreach ($id in $selected) {
-                        $app = $apps | Where-Object { $_.ID -eq $id }
-                        Write-Host "`n>> Instalando $($app.Name)..." -ForegroundColor Cyan
-                        winget install $app.Winget --disable-interactivity --accept-source-agreements --accept-package-agreements
-                    }
-                    Write-Centered "Proceso finalizado." "Green"; Pause-Menu; break
-                } else { Write-Centered "No seleccionaste nada." "Yellow"; Start-Sleep -Seconds 1 }
-            }
-            if ($selected.Contains($input)) { $selected.Remove($input) | Out-Null }
-            elseif ($apps.ID -contains $input) { $selected.Add($input) }
+            if ($input -eq 'I' -and $selected.Count -gt 0) { foreach ($id in $selected) { $app = $apps | ?{$_.ID -eq $id}; Write-Host "Instalando $($app.Name)..."; winget install $app.Winget --disable-interactivity --accept-source-agreements --accept-package-agreements }; break }
+            if ($selected.Contains($input)) { $selected.Remove($input) | Out-Null } elseif ($apps.ID -contains $input) { $selected.Add($input) }
         }
     }
 
-    # ==========================================
     # OPTIMIZACIONES
-    # ==========================================
-    "cmd_opt_fastoff" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
-    "cmd_opt_faston" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
+    "cmd_opt_fastoff" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force; Write-Centered "OK" "Green" }
+    "cmd_opt_faston" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force; Write-Centered "OK" "Green" }
     "cmd_opt_godmode" = { $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"; if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }; Write-Centered "OK" "Green" }
-    "cmd_opt_bloat" = { if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) { $bloatware = @("*bing*", "*xboxapp*", "*gethelp*", "*solitaire*"); foreach ($app in $bloatware) { Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue } }; Write-Centered "OK" "Green" }
-    "cmd_opt_cpl" = { Start-Process control }
-    "cmd_opt_dev" = { Start-Process devmgmt.msc }
-    "cmd_opt_net" = { Start-Process ncpa.cpl }
-    "cmd_opt_app" = { Start-Process appwiz.cpl }
-    
-    "cmd_opt_rename" = {
-        Write-Centered "--- RENOMBRAR EQUIPO Y USUARIO ---" "Cyan"; Write-Host "`n"
-        $newName = Read-Host " Ingrese nuevo nombre para el EQUIPO (Hostname) [Dejar vacio para omitir]"
-        if ($newName) { Rename-Computer -NewName $newName -ErrorAction SilentlyContinue; Write-Centered "Nombre de equipo cambiado a $newName (Requiere reinicio)." "Yellow" }
-        
-        $user = Read-Host "`n Ingrese nuevo nombre de visualizacion para su USUARIO actual [Dejar vacio para omitir]"
-        if ($user) { 
-            $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name.Split('\')[1]
-            $wmiUser = Get-WmiObject Win32_UserAccount -Filter "Name='$currentUser'"
-            $wmiUser.FullName = $user; $wmiUser.Put() | Out-Null
-            Write-Centered "Nombre de visualización cambiado a $user." "Green"
-        }
-    }
+    "cmd_opt_bloat" = { $bloat = @("*bing*", "*xboxapp*", "*gethelp*"); foreach ($app in $bloat) { Get-AppxPackage -Name $app -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue }; Write-Centered "OK" "Green" }
+    "cmd_opt_cpl" = { Start-Process control }; "cmd_opt_dev" = { Start-Process devmgmt.msc }; "cmd_opt_net" = { Start-Process ncpa.cpl }; "cmd_opt_app" = { Start-Process appwiz.cpl }
+    "cmd_opt_rename" = { $n = Read-Host " Nuevo Hostname"; if($n){ Rename-Computer -NewName $n -ErrorAction SilentlyContinue; Write-Centered "PC -> $n (Reiniciar)." "Yellow" } }
 
-    # ==========================================
     # IMPRESORAS
-    # ==========================================
-    "cmd_rep_spool" = { Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item -Path "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service -Name Spooler -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
-    "cmd_print_folder" = { $path = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"; if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null; Write-Centered "Carpeta de Impresoras creada en el Escritorio." "Green" } else { Write-Centered "La carpeta ya existe." "Yellow" } }
-    
-    "cmd_print_del" = {
-        $printers = Get-Printer | Select-Object Name, PortName
-        if ($printers.Count -eq 0) { Write-Centered "No hay impresoras." "Yellow"; return }
-        $i = 1; foreach ($p in $printers) { Write-Host "  $i. $($p.Name)" -ForegroundColor White; $i++ }
-        $sel = Read-Host "`n Numero a eliminar (0 cancelar)"
-        if ([int]$sel -gt 0 -and [int]$sel -le $printers.Count) { $target = $printers[[int]$sel - 1]; Remove-Printer -Name $target.Name -ErrorAction SilentlyContinue; Write-Centered "Impresora '$($target.Name)' eliminada." "Green" }
-    }
-    
-    "cmd_print_driver" = {
-        $drivers = Get-PrinterDriver | Select-Object Name
-        if ($drivers.Count -eq 0) { Write-Centered "No hay drivers." "Yellow"; return }
-        $i = 1; foreach ($d in $drivers) { Write-Host "  $i. $($d.Name)" -ForegroundColor White; $i++ }
-        $sel = Read-Host "`n Numero a eliminar (0 cancelar)"
-        if ([int]$sel -gt 0 -and [int]$sel -le $drivers.Count) { $target = $drivers[[int]$sel - 1]; Remove-PrinterDriver -Name $target.Name -ErrorAction SilentlyContinue; Write-Centered "Driver '$($target.Name)' eliminado." "Green" }
-    }
+    "cmd_rep_spool" = { Stop-Service Spooler -Force; Remove-Item "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service Spooler; Write-Centered "OK" "Green" }
+    "cmd_print_folder" = { $p = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"; if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; Write-Centered "OK" "Green" }
+    "cmd_print_del" = { $printers = Get-Printer; $i=1; foreach($p in $printers){ Write-Host " $i. $($p.Name)"; $i++ }; $s = Read-Host " Borrar nro"; if($s){ Remove-Printer -Name $printers[[int]$s-1].Name } }
+    "cmd_print_fw" = { Enable-NetFirewallRule -Name "FPS-ICMP4-ERQ-In" -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName "Toolbox_PrintTCP" -Direction Inbound -Protocol TCP -LocalPort 139,445 -Action Allow -ErrorAction SilentlyContinue | Out-Null; Write-Centered "OK" "Green" }
 
-    "cmd_print_fw" = {
-        Write-Centered "Habilitando Ping (ICMPv4) y Puertos (137,138,139,445)..." "White"
-        Enable-NetFirewallRule -Name "FPS-ICMP4-ERQ-In" -ErrorAction SilentlyContinue | Out-Null
-        Enable-NetFirewallRule -DisplayGroup "Compartir archivos e impresoras" -ErrorAction SilentlyContinue | Out-Null
-        Enable-NetFirewallRule -DisplayGroup "File and Printer Sharing" -ErrorAction SilentlyContinue | Out-Null
-        New-NetFirewallRule -DisplayName "Toolbox_PrintTCP" -Direction Inbound -Protocol TCP -LocalPort 139,445 -Action Allow -ErrorAction SilentlyContinue | Out-Null
-        New-NetFirewallRule -DisplayName "Toolbox_PrintUDP" -Direction Inbound -Protocol UDP -LocalPort 137,138 -Action Allow -ErrorAction SilentlyContinue | Out-Null
-        Write-Centered "Reglas de Firewall configuradas con exito." "Green"
-    }
+    # IDENTIDAD
+    "cmd_user_admin_on" = { net user administrator /active:yes; Write-Centered "ADMIN ON." "Green" }
+    "cmd_user_admin_off" = { net user administrator /active:no; Write-Centered "ADMIN OFF." "White" }
+    "cmd_user_pass" = { Get-LocalUser | Select-Object Name; $u = Read-Host "Usuario"; if($u){ $p = Read-Host "Clave"; net user "$u" "$p" | Out-Null; Write-Centered "OK" "Green" } }
 
-    # ==========================================
-    # IDENTIDAD Y USUARIOS
-    # ==========================================
-    "cmd_user_admin_on" = { net user administrator /active:yes; Write-Centered "Cuenta Administrador Local HABILITADA." "Green" }
-    "cmd_user_admin_off" = { net user administrator /active:no; Write-Centered "Cuenta Administrador Local DESHABILITADA." "Red" }
-    "cmd_user_pass" = {
-        Write-Centered "--- USUARIOS DEL SISTEMA ---" "Cyan"; Write-Host "`n"
-        Get-LocalUser | Select-Object Name, Enabled | Format-Table -AutoSize
-        $u = Read-Host "`n Escriba el NOMBRE EXACTO del usuario a modificar (o deje vacio para cancelar)"
-        if ($u) {
-            $p = Read-Host " Ingrese la nueva contraseña"
-            try { net user "$u" "$p" | Out-Null; Write-Centered "Contraseña cambiada exitosamente." "Green" } 
-            catch { Write-Centered "Error al cambiar contraseña. Verifique el nombre." "Red" }
-        }
-    }
-
-    # ==========================================
-    # MODO AUTOMATICO
-    # ==========================================
+    # MODO AUTOMATICO (8 PASOS - v2.3.1)
     "cmd_auto_run" = {
-        Write-Centered ">> EJECUTANDO MANTENIMIENTO AUTOMATICO <<" "Green"; Write-Host "`n"
-        Write-Centered "[ 1/5 ] Punto de Restauracion..." "Yellow"; Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
-        Write-Centered "[ 2/5 ] Limpiando basura..." "Yellow"; &$Accion_Limpieza
-        Write-Centered "[ 3/5 ] Reparando SO (SFC/DISM)..." "Yellow"; &$Accion_Reparacion
-        Write-Centered "[ 4/5 ] Forzando Politicas (GPO)..." "Yellow"; gpupdate /force | Out-Null
-        Write-Centered "[ 5/5 ] Sincronizando Hora..." "Yellow"; Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-Null
-        Play-FinishBeep; Write-Centered "PROCESO COMPLETADO EXITOSAMENTE" "Green"
+        Write-Centered ">> MANTENIMIENTO AUTOMATICO EN PROGRESO <<" "Green"; Write-Host "`n"
+        Write-Centered "[ 1/8 ] Punto de Restauracion..." "Yellow"; Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
+        Write-Centered "[ 2/8 ] Limpieza de Basura..." "Yellow"; &$Accion_Limpieza
+        Write-Centered "[ 3/8 ] Reparacion de SO (SFC/DISM)..." "Yellow"; &$Accion_Reparacion
+        Write-Centered "[ 4/8 ] Escaneo de Disco en Vivo (CHKDSK)..." "Yellow"; chkdsk C: /scan | Out-Null
+        Write-Centered "[ 5/8 ] Limpieza Profunda WinSxS..." "Yellow"; dism /online /cleanup-image /StartComponentCleanup | Out-Null
+        Write-Centered "[ 6/8 ] Purgando Visor de Eventos..." "Yellow"; wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
+        Write-Centered "[ 7/8 ] Forzando Politicas (GPO)..." "Yellow"; gpupdate /force | Out-Null
+        Write-Centered "[ 8/8 ] Sincronizando Hora..." "Yellow"; Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-Null
+        Play-FinishBeep; Write-Centered "MANTENIMIENTO FINALIZADO" "Green"
     }
     "cmd_auto_run_exit" = { & $Actions["cmd_auto_run"]; [Console]::Clear(); exit }
     
     "action_credits" = {
-        Write-Centered "=== CREDITOS ===" "Cyan"; Write-Host "`n"
-        Write-Centered "Toolbox Tecnico Pro - By Viktor" "White"
-        Write-Centered "Chroma Cat Studios" "Magenta"
-        Write-Host "`n"; Write-Centered "GitHub: github.com/xvacorx" "Cyan"
-        Start-Process "https://github.com/xvacorx"
+        Write-Centered "=== CREDITOS ===" "Cyan"; Write-Host "`n"; Write-Centered "Toolbox Tecnico Pro - By Viktor" "White"
+        Write-Centered "Chroma Cat Studios" "Magenta"; Write-Host "`n"; Write-Centered "GitHub: github.com/xvacorx" "Cyan"; Start-Process "https://github.com/xvacorx"
     }
 }
 
 # --- 7. MOTOR DE RENDERIZADO Y NAVEGACIÓN ---
 $currentMenu = "principal"
-
 while ($true) {
-    [Console]::Clear()
-    $l = $global:lang
-    $menuData = $db.menus.$currentMenu
-
+    [Console]::Clear(); $l = $global:lang; $menuData = $db.menus.$currentMenu
     Show-Header
-
     if ($null -ne $menuData.titulo) { Write-Centered "=== $($menuData.titulo.$l) ===" "Cyan"; Write-Host "`n" }
-
-    # Renderiza la Información extra (Ej: para el Modo Automático)
-    if ($null -ne $menuData.info) {
-        foreach ($lineData in $menuData.info) {
-            $lineStr = if ($l -eq 'es') { $lineData.es } else { $lineData.en }
-            Write-Centered $lineStr "Yellow"
-        }
-        Write-Host "`n"
-    }
-
-    # Lógica de separación visual (Agrupa los números arriba, letras abajo)
-    $mainOps = @()
-    $extraOps = @()
-    foreach ($op in $menuData.opciones) {
-        if ($op.tecla -match '^[1-9]$') { $mainOps += $op }
-        else { $extraOps += $op }
-    }
-
-    # Renderiza opciones principales
-    foreach ($op in $mainOps) {
-        $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
-        $color = if ($op.color) { $op.color } else { "White" }
-        Write-Centered " $($op.tecla). $label " $color
-    }
-
-    # Renderiza separador visual y opciones extra
-    if ($extraOps.Count -gt 0) {
-        Write-Host "`n"
-        foreach ($op in $extraOps) {
-            $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
-            $color = if ($op.color) { $op.color } else { "White" }
-            Write-Centered " $($op.tecla). $label " $color
-        }
-    }
-
-    Write-Host "`n"; Write-Centered ("-" * 80) "Gray"
-    Write-Host (" " * 46) "+ $($db.diccionario.option.$l) " -ForegroundColor Gray -NoNewline
+    if ($null -ne $menuData.info) { foreach ($line in $menuData.info) { Write-Centered (if($l -eq 'es'){$line.es}else{$line.en}) "Yellow" }; Write-Host "`n" }
     
-    # Input de 1 sola tecla integrado
-    $key = Read-SingleKey
-    Write-Host $key -ForegroundColor Cyan
-    Start-Sleep -Milliseconds 150 # Pausa visual para sentir el click
+    $mainOps = @(); $extraOps = @()
+    foreach ($op in $menuData.opciones) { if ($op.tecla -match '^[1-9]$') { $mainOps += $op } else { $extraOps += $op } }
+    foreach ($op in $mainOps) { Write-Centered " $($op.tecla). $(if($l -eq 'es'){$op.label_es}else{$op.label_en}) " (if($op.color){$op.color}else{"White"}) }
+    if ($extraOps.Count -gt 0) { Write-Host "`n"; foreach ($op in $extraOps) { Write-Centered " $($op.tecla). $(if($l -eq 'es'){$op.label_es}else{$op.label_en}) " (if($op.color){$op.color}else{"White"}) } }
 
-    # Ruteo Logico
-    $selectedOption = $null
-    foreach ($op in $menuData.opciones) {
-        if ($op.tecla.ToUpper() -eq $key) { $selectedOption = $op; break }
-    }
-
-    if ($selectedOption) {
-        $target = $selectedOption.target
-
-        if ($target -eq "sys_exit") { [Console]::Clear(); exit }
-        elseif ($target -eq "sys_lang_toggle") { $global:lang = if ($global:lang -eq 'es') { 'en' } else { 'es' }; Write-Centered "Switching language..." "Cyan"; Start-Sleep -Milliseconds 400 }
-        elseif ($target.StartsWith("cmd_") -or $target.StartsWith("action_")) {
-            [Console]::Clear(); Show-Header
-            if ($Actions.ContainsKey($target)) { & $Actions[$target] } 
-            else { Write-Centered "[!] Comando no encontrado en el motor PS1: $target" "Red" }
-            Pause-Menu
-        }
-        elseif ($null -ne $db.menus.$target) { $currentMenu = $target }
+    Write-Host "`n"; Write-Centered ("-" * 80) "Gray"; Write-Host (" " * 46) "+ $($db.diccionario.option.$l) " -ForegroundColor Gray -NoNewline
+    $key = Read-SingleKey; Write-Host $key -ForegroundColor Cyan; Start-Sleep -Milliseconds 150
+    $sel = $menuData.opciones | ? { $_.tecla.ToUpper() -eq $key }
+    if ($sel) {
+        $t = $sel.target
+        if ($t -eq "sys_exit") { [Console]::Clear(); exit }
+        elseif ($t -eq "sys_lang_toggle") { $global:lang = if ($global:lang -eq 'es') { 'en' } else { 'es' }; Write-Centered "Language changed." "Cyan"; Start-Sleep -Milliseconds 400 }
+        elseif ($t.StartsWith("cmd_") -or $t.StartsWith("action_")) { [Console]::Clear(); Show-Header; if ($Actions.ContainsKey($t)) { & $Actions[$t] } else { Write-Centered "[!] Comando huerfano: $t" "Red" }; Pause-Menu }
+        elseif ($null -ne $db.menus.$t) { $currentMenu = $t }
     }
 }
