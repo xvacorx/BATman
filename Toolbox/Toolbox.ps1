@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.3.1)
+# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v2.3.2)
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -214,25 +214,75 @@ $Actions = @{
 
 # --- 7. MOTOR DE RENDERIZADO Y NAVEGACIÓN ---
 $currentMenu = "principal"
-while ($true) {
-    [Console]::Clear(); $l = $global:lang; $menuData = $db.menus.$currentMenu
-    Show-Header
-    if ($null -ne $menuData.titulo) { Write-Centered "=== $($menuData.titulo.$l) ===" "Cyan"; Write-Host "`n" }
-    if ($null -ne $menuData.info) { foreach ($line in $menuData.info) { Write-Centered (if($l -eq 'es'){$line.es}else{$line.en}) "Yellow" }; Write-Host "`n" }
-    
-    $mainOps = @(); $extraOps = @()
-    foreach ($op in $menuData.opciones) { if ($op.tecla -match '^[1-9]$') { $mainOps += $op } else { $extraOps += $op } }
-    foreach ($op in $mainOps) { Write-Centered " $($op.tecla). $(if($l -eq 'es'){$op.label_es}else{$op.label_en}) " (if($op.color){$op.color}else{"White"}) }
-    if ($extraOps.Count -gt 0) { Write-Host "`n"; foreach ($op in $extraOps) { Write-Centered " $($op.tecla). $(if($l -eq 'es'){$op.label_es}else{$op.label_en}) " (if($op.color){$op.color}else{"White"}) } }
 
-    Write-Host "`n"; Write-Centered ("-" * 80) "Gray"; Write-Host (" " * 46) "+ $($db.diccionario.option.$l) " -ForegroundColor Gray -NoNewline
-    $key = Read-SingleKey; Write-Host $key -ForegroundColor Cyan; Start-Sleep -Milliseconds 150
-    $sel = $menuData.opciones | ? { $_.tecla.ToUpper() -eq $key }
-    if ($sel) {
-        $t = $sel.target
-        if ($t -eq "sys_exit") { [Console]::Clear(); exit }
-        elseif ($t -eq "sys_lang_toggle") { $global:lang = if ($global:lang -eq 'es') { 'en' } else { 'es' }; Write-Centered "Language changed." "Cyan"; Start-Sleep -Milliseconds 400 }
-        elseif ($t.StartsWith("cmd_") -or $t.StartsWith("action_")) { [Console]::Clear(); Show-Header; if ($Actions.ContainsKey($t)) { & $Actions[$t] } else { Write-Centered "[!] Comando huerfano: $t" "Red" }; Pause-Menu }
-        elseif ($null -ne $db.menus.$t) { $currentMenu = $t }
+while ($true) {
+    [Console]::Clear()
+    $l = $global:lang
+    $menuData = $db.menus.$currentMenu
+
+    Show-Header
+
+    if ($null -ne $menuData.titulo) { Write-Centered "=== $($menuData.titulo.$l) ===" "Cyan"; Write-Host "`n" }
+
+    # Renderiza la Información extra (Ej: para el Modo Automático)
+    if ($null -ne $menuData.info) {
+        foreach ($line in $menuData.info) {
+            $textInfo = if ($l -eq 'es') { $line.es } else { $line.en }
+            Write-Centered $textInfo "Yellow"
+        }
+        Write-Host "`n"
+    }
+
+    # Lógica de separación visual (Agrupa los números arriba, letras abajo)
+    $mainOps = @()
+    $extraOps = @()
+    foreach ($op in $menuData.opciones) {
+        if ($op.tecla -match '^[1-9]$') { $mainOps += $op }
+        else { $extraOps += $op }
+    }
+
+    # Renderiza opciones principales
+    foreach ($op in $mainOps) {
+        $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
+        $color = if ($op.color) { $op.color } else { "White" }
+        Write-Centered " $($op.tecla). $label " $color
+    }
+
+    # Renderiza separador visual y opciones extra
+    if ($extraOps.Count -gt 0) {
+        Write-Host "`n"
+        foreach ($op in $extraOps) {
+            $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
+            $color = if ($op.color) { $op.color } else { "White" }
+            Write-Centered " $($op.tecla). $label " $color
+        }
+    }
+
+    Write-Host "`n"; Write-Centered ("-" * 80) "Gray"
+    Write-Host (" " * 46) "+ $($db.diccionario.option.$l) " -ForegroundColor Gray -NoNewline
+    
+    # Input de 1 sola tecla integrado
+    $key = Read-SingleKey
+    Write-Host $key -ForegroundColor Cyan
+    Start-Sleep -Milliseconds 150 # Pausa visual para sentir el click
+
+    # Ruteo Logico
+    $selectedOption = $null
+    foreach ($op in $menuData.opciones) {
+        if ($op.tecla.ToUpper() -eq $key) { $selectedOption = $op; break }
+    }
+
+    if ($selectedOption) {
+        $target = $selectedOption.target
+
+        if ($target -eq "sys_exit") { [Console]::Clear(); exit }
+        elseif ($target -eq "sys_lang_toggle") { $global:lang = if ($global:lang -eq 'es') { 'en' } else { 'es' }; Write-Centered "Switching language..." "Cyan"; Start-Sleep -Milliseconds 400 }
+        elseif ($target.StartsWith("cmd_") -or $target.StartsWith("action_")) {
+            [Console]::Clear(); Show-Header
+            if ($Actions.ContainsKey($target)) { & $Actions[$target] } 
+            else { Write-Centered "[!] Comando no encontrado en el motor PS1: $target" "Red" }
+            Pause-Menu
+        }
+        elseif ($null -ne $db.menus.$target) { $currentMenu = $target }
     }
 }
