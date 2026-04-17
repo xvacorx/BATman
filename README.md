@@ -10,21 +10,23 @@ Whether you're a Field Support Analyst handling infrastructure, an IT profession
 
 ## 🚀 Quick Start: Toolbox Tecnico Pro (Flagship Tool)
 
-Don't want to read? Run our ultimate All-In-One utility belt directly from your PowerShell terminal (Run as Administrator).
+The ultimate data-driven All-In-One utility belt for IT infrastructure support. No complex installations required. Choose your deployment method:
 
-Copy and paste this command:
-
-```powershell
-iex (irm tinyurl.com/VikToolBox)
-```
-
-or the usual
+### ☁️ Option 1: Cloud Execution (Recommended)
+Run the latest version directly from your PowerShell terminal. Open PowerShell as Administrator and paste the following command:
 
 ```powershell
-irm tinyurl.com/VikToolBox | iex
+irm [tinyurl.com/VikToolBox](https://tinyurl.com/VikToolBox) | iex
 ```
+*(Note: The V11 Engine features an auto-elevation protocol. If you forget to run as Admin, it will automatically request the necessary privileges).*
 
-*(If you prefer the portable `.bat` executable version, download it directly from the [Toolbox folder](https://github.com/xvacorx/BATman/tree/main/Toolbox)).*
+### 📦 Option 2: Offline Executable (.exe)
+Perfect for USB drives and offline deployments on newly formatted PCs. Download the pre-compiled executable with the JSON architecture safely bundled inside.
+👉 **[Download Offline Version (Toolbox.exe)](https://downgit.github.io/#/home?url=https://github.com/xvacorx/BATman/blob/main/Toolbox/Toolbox.exe)**
+
+### 🛠️ Option 3: Portable Scripts (.bat / .ps1)
+Prefer to read the code or use the portable batch launcher? You can download the raw script, the launcher, and the `.json` database directly from the source.
+👉 **[Browse the Toolbox Folder](https://github.com/xvacorx/BATman/tree/main/Toolbox)**
 
 ### ⭐ Why use the Toolbox Tecnico Pro?
 
