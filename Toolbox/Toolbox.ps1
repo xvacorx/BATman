@@ -192,7 +192,7 @@ $Actions = @{
         $selected = New-Object System.Collections.Generic.List[string]
         while ($true) {
             [Console]::Clear(); Write-Centered "--- CATALOGO INTERACTIVO ---" "Cyan"; Write-Host "`n"
-            foreach ($app in $apps) { $mark = if ($selected.Contains($app.ID)) { "[X]" } else { "[ ]" }; Write-Host (" " * 30 + "$mark $($app.ID). $($app.Name)") -ForegroundColor (if($selected.Contains($app.ID)){"Green"}else{"White"}) }
+            foreach ($app in $apps) { $mark = if ($selected.Contains($app.ID)) { "[X]" } else { "[ ]" }; Write-Host (" " * 30 + "$mark $($app.ID). $($app.Name)") -ForegroundColor $(if($selected.Contains($app.ID)){"Green"}else{"White"}) }
             Write-Host "`n"; Write-Centered "E. Esenciales | I. Instalar | 0. Volver" "Yellow"; Write-Host (" " * 30) "+ Opcion: " -NoNewline; $input = Read-SingleKey; Write-Host $input -ForegroundColor Cyan
             if ($input -eq '0') { break }
             if ($input -eq 'E') { $selected.Clear(); $selected.AddRange(@("1","3","4")) }
