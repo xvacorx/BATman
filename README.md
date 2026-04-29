@@ -18,7 +18,7 @@ Run the latest version directly from your PowerShell terminal. Open PowerShell a
 ```powershell
 irm [tinyurl.com/VikToolBox](https://tinyurl.com/VikToolBox) | iex
 ```
-*(Note: The V11 Engine features an auto-elevation protocol. If you forget to run as Admin, it will automatically request the necessary privileges).*
+*(Note: The v3.0.0 Engine features an auto-elevation protocol. If you forget to run as Admin, it will automatically request the necessary privileges).*
 
 ### 📦 Option 2: Offline Executable (.exe)
 Perfect for USB drives and offline deployments on newly formatted PCs. Download the pre-compiled executable with the JSON architecture safely bundled inside.
