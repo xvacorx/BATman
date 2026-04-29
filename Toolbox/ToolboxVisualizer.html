@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vik Tools IDE - Toolbox V11</title>
+    <title>Vik Tools IDE - Toolbox v3.0.0</title>
     <style>
         :root {
             --bg-main: #0a0a0e;
@@ -422,7 +422,7 @@
 
     <div class="workspace">
         <div class="console-workspace">
-            <div id="statusBar" class="status-bar">Toolbox V11 IDE [Esperando archivos...]</div>
+            <div id="statusBar" class="status-bar">Toolbox v3.0.0 IDE [Esperando archivos...]</div>
             <div class="console-container" id="console">
                 <div class="line color-gray">Cargá el menu.json para iniciar el motor visual.</div>
             </div>
@@ -663,7 +663,7 @@
             if (!db || !db.menus[menuId]) { renderInspectorMainMenu(); return; }
             currentViewMenuId = menuId; const menuData = db.menus[menuId]; const dic = db.diccionario;
             const consoleDiv = document.getElementById('console'); consoleDiv.innerHTML = '';
-            document.getElementById('statusBar').innerText = `Toolbox V11 | Menú: ${menuId} | Idioma: ${currentLang.toUpperCase()}`;
+            document.getElementById('statusBar').innerText = `Toolbox v3.0.0 | Menú: ${menuId} | Idioma: ${currentLang.toUpperCase()}`;
 
             const printEditableLine = (text, colorClass, dicKey, type) => {
                 const div = document.createElement('div'); div.className = `line editable ${colorClass}`; div.innerText = text;

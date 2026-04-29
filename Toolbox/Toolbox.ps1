@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - ENGINE V11 MASTER (v3.0.0)
+# TOOLBOX TECNICO PRO - v3.0.0
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -94,9 +94,7 @@ function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$
 function Test-Internet { if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) { return $true }; return $false }
 
 # --- 4. CARGA DE BASE DE DATOS (JSON) ---
-$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/update-toolbox-v3-17865159802571578976/Toolbox/menu.json"
-# --- $jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/main/Toolbox/menu.json"
-
+$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/main/Toolbox/menu.json"
 
 $jsonPath = Join-Path (Split-Path -Parent -Path $MyInvocation.MyCommand.Definition -ErrorAction SilentlyContinue) "menu.json" -ErrorAction SilentlyContinue
 if ([string]::IsNullOrEmpty($jsonPath) -or -not (Test-Path $jsonPath)) { $jsonPath = ".\menu.json" }
@@ -105,7 +103,7 @@ if (Test-Path $jsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Cargando motor V11 desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor v3.0.0 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
