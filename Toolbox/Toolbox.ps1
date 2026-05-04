@@ -10,11 +10,15 @@ if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $f
 if ($IsWindows) {
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        if ($PSCommandPath) { Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" }
-        else { Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm tinyurl.com/VikToolBox)`"" }
+        # Definimos el comando de red exactamente como quieres que se ejecute fuera
+        $remoteCmd = "iex (irm tinyurl.com/VikToolBox)"
+        
+        # Elevamos usando una estructura de argumentos más limpia
+        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $remoteCmd
         exit
     }
     try { [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.VisualBasic"); [Microsoft.VisualBasic.Interaction]::AppActivate($PID) } catch { }
+}
 } else {
     $uid = $(id -u)
     if ($uid -ne "0") {
