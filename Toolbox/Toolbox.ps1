@@ -18,7 +18,7 @@ if ($IsWindows) {
         exit
     }
     try { [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.VisualBasic"); [Microsoft.VisualBasic.Interaction]::AppActivate($PID) } catch { }
-
+}
 } else {
     $uid = $(id -u)
     if ($uid -ne "0") {
