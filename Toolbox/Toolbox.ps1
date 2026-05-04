@@ -10,21 +10,20 @@ if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $f
 if ($IsWindows) {
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        # Definimos el comando de red exactamente como quieres que se ejecute fuera
+        # Comando para re-ejecutar desde la web tras elevar
         $remoteCmd = "iex (irm tinyurl.com/VikToolBox)"
         
-        # Elevamos usando una estructura de argumentos más limpia
+        # Start-Process con ArgumentList separado por comas evita errores de parseo de comillas
         Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $remoteCmd
         exit
     }
     try { [void][System.Reflection.Assembly]::LoadWithPartialName("Microsoft.VisualBasic"); [Microsoft.VisualBasic.Interaction]::AppActivate($PID) } catch { }
-}
 } else {
     $uid = $(id -u)
     if ($uid -ne "0") {
         Write-Host "Elevando privilegios (sudo)..." -ForegroundColor Yellow
-        if ($PSCommandPath) { sudo pwsh -NoProfile -File "$PSCommandPath" }
-        else { sudo pwsh -NoProfile -Command "iex (irm tinyurl.com/VikToolBox)" }
+        # Para entornos Unix, mantenemos la lógica de ejecución remota
+        sudo pwsh -NoProfile -Command "iex (irm tinyurl.com/VikToolBox)"
         exit
     }
 }
