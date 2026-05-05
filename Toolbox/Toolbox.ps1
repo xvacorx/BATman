@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.0.3
+# TOOLBOX TECNICO PRO - v3.0.4
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -109,7 +109,7 @@ function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$
 function Test-Internet { if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) { return $true }; return $false }
 
 # --- 4. CARGA DE BASE DE DATOS (JSON) ---
-$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/fix-empty-path-crash-18284181705871747976/Toolbox/menu.json"
+$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/main/Toolbox/menu.json"
 
 $jsonPath = ""
 if (-not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Definition)) {
@@ -120,11 +120,25 @@ if (-not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Definition)) {
     }
 }
 
-if ([string]::IsNullOrEmpty($jsonPath) -or -not (Test-Path $jsonPath -PathType Leaf -ErrorAction SilentlyContinue)) {
-    $jsonPath = ".\menu.json"
+$hasValidJsonPath = $false
+if (-not [string]::IsNullOrWhiteSpace($jsonPath)) {
+    try {
+        if (Test-Path -Path $jsonPath -PathType Leaf -ErrorAction SilentlyContinue) {
+            $hasValidJsonPath = $true
+        }
+    } catch { }
 }
 
-if (Test-Path $jsonPath -PathType Leaf -ErrorAction SilentlyContinue) {
+if (-not $hasValidJsonPath) {
+    $jsonPath = ".\menu.json"
+    try {
+        if (Test-Path -Path $jsonPath -PathType Leaf -ErrorAction SilentlyContinue) {
+            $hasValidJsonPath = $true
+        }
+    } catch { }
+}
+
+if ($hasValidJsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
