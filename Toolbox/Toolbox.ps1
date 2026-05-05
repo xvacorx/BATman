@@ -109,7 +109,7 @@ function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$
 function Test-Internet { if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) { return $true }; return $false }
 
 # --- 4. CARGA DE BASE DE DATOS (JSON) ---
-$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/main/Toolbox/menu.json"
+$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/fix-empty-path-crash-18284181705871747976/Toolbox/menu.json"
 
 $jsonPath = ""
 if (-not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Definition)) {
