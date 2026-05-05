@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.0.1
+# TOOLBOX TECNICO PRO - v3.0.2
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -11,7 +11,15 @@ if ($IsWindows) {
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         $scriptPath = $MyInvocation.MyCommand.Path
-        if ([string]::IsNullOrWhiteSpace($scriptPath) -or -not (Test-Path -LiteralPath $scriptPath)) {
+        $isLocal = $false
+        
+        if (-not [string]::IsNullOrWhiteSpace($scriptPath)) {
+            if (Test-Path -LiteralPath $scriptPath -ErrorAction SilentlyContinue) {
+                $isLocal = $true
+            }
+        }
+
+        if (-not $isLocal) {
             # Usamos un bloque try-catch dentro del comando remoto para que la ventana NO se cierre si falla
             $remoteCmd = "try { iex (irm tinyurl.com/VikToolBox) } catch { Write-Host '[!] Error Fatal en la elevacion: ' + `$_.Exception.Message -ForegroundColor Red; Read-Host 'Presiona Enter para cerrar' }"
             Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"$remoteCmd`""
@@ -108,7 +116,7 @@ if (Test-Path $jsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Cargando motor v3.0.1 desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor v3.0.2 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
