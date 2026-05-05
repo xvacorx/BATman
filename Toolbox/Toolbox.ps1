@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.0.2
+# TOOLBOX TECNICO PRO - v3.0.3
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -14,9 +14,11 @@ if ($IsWindows) {
         $isLocal = $false
         
         if (-not [string]::IsNullOrWhiteSpace($scriptPath)) {
-            if (Test-Path -LiteralPath $scriptPath -ErrorAction SilentlyContinue) {
-                $isLocal = $true
-            }
+            try {
+                if (Test-Path -LiteralPath $scriptPath -PathType Leaf -ErrorAction SilentlyContinue) {
+                    $isLocal = $true
+                }
+            } catch { }
         }
 
         if (-not $isLocal) {
@@ -109,10 +111,20 @@ function Test-Internet { if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorActio
 # --- 4. CARGA DE BASE DE DATOS (JSON) ---
 $jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/main/Toolbox/menu.json"
 
-$jsonPath = Join-Path (Split-Path -Parent -Path $MyInvocation.MyCommand.Definition -ErrorAction SilentlyContinue) "menu.json" -ErrorAction SilentlyContinue
-if ([string]::IsNullOrEmpty($jsonPath) -or -not (Test-Path $jsonPath)) { $jsonPath = ".\menu.json" }
+$jsonPath = ""
+if (-not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Definition)) {
+    try {
+        $jsonPath = Join-Path (Split-Path -Parent -Path $MyInvocation.MyCommand.Definition -ErrorAction SilentlyContinue) "menu.json" -ErrorAction SilentlyContinue
+    } catch {
+        $jsonPath = ""
+    }
+}
 
-if (Test-Path $jsonPath) {
+if ([string]::IsNullOrEmpty($jsonPath) -or -not (Test-Path $jsonPath -PathType Leaf -ErrorAction SilentlyContinue)) {
+    $jsonPath = ".\menu.json"
+}
+
+if (Test-Path $jsonPath -PathType Leaf -ErrorAction SilentlyContinue) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
