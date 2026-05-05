@@ -35,7 +35,8 @@ if ($IsWindows) {
     $uid = $(id -u)
     if ($uid -ne "0") {
         Write-Host "Elevando privilegios (sudo)..." -ForegroundColor Yellow
-        sudo pwsh -NoProfile -Command "iex (irm tinyurl.com/VikToolBox)"
+        if ($PSCommandPath) { sudo pwsh -NoProfile -File "$PSCommandPath" }
+        else { sudo pwsh -NoProfile -Command "iex (irm tinyurl.com/VikToolBox)" }
         exit
     }
 }
