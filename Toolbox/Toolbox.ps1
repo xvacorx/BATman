@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.0.4
+# TOOLBOX TECNICO PRO - v3.0.5
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -143,7 +143,7 @@ if ($hasValidJsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Cargando motor v3.0.4 desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor v3.0.5 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
@@ -324,7 +324,49 @@ $Actions = @{
     "cmd_opt_fastoff" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force; Write-Centered "OK" "Green" }
     "cmd_opt_faston" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force; Write-Centered "OK" "Green" }
     "cmd_opt_godmode" = { $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"; if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }; Write-Centered "OK" "Green" }
-    "cmd_opt_bloat" = { Write-Centered "Aniquilando Bloatware..." "Yellow"; $bloat = @("*bing*", "*xboxapp*", "*gethelp*", "*solitaire*", "*people*", "*skype*"); foreach ($app in $bloat) { Get-AppxPackage -Name $app -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue }; Write-Centered "OK" "Green" }
+    "cmd_opt_bloat" = {
+        Write-Centered "Aniquilando Bloatware..." "Yellow"
+        $bloat = @("*bing*", "*xboxapp*", "*gethelp*", "*solitaire*", "*people*", "*skype*")
+        Write-Host " "
+        if ($global:lang -eq 'es') {
+            Write-Host " Se buscaran y eliminaran las siguientes aplicaciones:" -ForegroundColor Cyan
+        } else {
+            Write-Host " The following apps will be searched and removed:" -ForegroundColor Cyan
+        }
+        foreach ($b in $bloat) { Write-Host "   - $b" -ForegroundColor Gray }
+
+        $confirmMsg = if ($global:lang -eq 'es') { "`n Continuar? (s/n)" } else { "`n Continue? (y/n)" }
+        $s = Read-Host $confirmMsg
+        if ($s -eq 's' -or $s -eq 'y') {
+            try {
+                $allApps = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+                if ($allApps) {
+                    $appsToRemove = $allApps | Where-Object {
+                        $appName = $_.Name
+                        $match = $false
+                        foreach ($pattern in $bloat) {
+                            if ($appName -like $pattern) { $match = $true; break }
+                        }
+                        $match
+                    }
+                    if ($appsToRemove) {
+                        foreach ($app in $appsToRemove) {
+                            try {
+                                Remove-AppxPackage -Package $app.PackageFullName -AllUsers -ErrorAction Stop
+                            } catch {
+                                # Ignorar errores silenciosamente para que no rompa el script (como PeopleExperienceHost)
+                            }
+                        }
+                    }
+                }
+                Write-Centered "OK" "Green"
+            } catch {
+                Write-Centered "OK" "Green"
+            }
+        } else {
+            if ($global:lang -eq 'es') { Write-Centered "Operacion Cancelada" "Gray" } else { Write-Centered "Operation Canceled" "Gray" }
+        }
+    }
     "cmd_opt_visuals" = {
         Write-Centered "Ajustando rendimiento visual..." "Yellow"
         # 1 = Appearance, 2 = Best Appearance, 3 = Best Performance, 0 = Custom
