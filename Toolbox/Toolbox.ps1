@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.0.5
+# TOOLBOX TECNICO PRO - v3.0.6
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -143,7 +143,7 @@ if ($hasValidJsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Cargando motor v3.0.5 desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor v3.0.6 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
@@ -211,7 +211,7 @@ $Actions = @{
 
     # REPARACION
     "cmd_rep_sfc" = { &$Accion_Reparacion; Play-FinishBeep }
-    "cmd_rep_chkdsk" = { cmd.exe /c "echo S | chkdsk C: /f"; Write-Centered "OK" "Green" }
+    "cmd_rep_chkdsk" = { try { cmd.exe /c "echo S | chkdsk C: /f" } catch { Write-Centered "Error ejecutando CHKDSK" "Red" }; Write-Centered "OK" "Green" }
     "cmd_rep_restore" = { Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Manual" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
     "cmd_rep_icons" = { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue; Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue; Start-Process explorer; Write-Centered "OK" "Green" }
     "cmd_rep_time" = { Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" } }
@@ -410,7 +410,7 @@ $Actions = @{
         Write-Centered "[ 1/8 ] Punto de Restauracion..." "Yellow"; Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
         Write-Centered "[ 2/8 ] Limpieza de Basura..." "Yellow"; &$Accion_Limpieza
         Write-Centered "[ 3/8 ] Reparacion de SO (SFC/DISM)..." "Yellow"; &$Accion_Reparacion
-        Write-Centered "[ 4/8 ] Escaneo de Disco en Vivo (CHKDSK)..." "Yellow"; chkdsk C: /scan
+        Write-Centered "[ 4/8 ] Escaneo de Disco en Vivo (CHKDSK)..." "Yellow"; try { cmd.exe /c "chkdsk C: /scan" } catch { Write-Centered "Error ejecutando CHKDSK en vivo" "Red" }
         Write-Centered "[ 5/8 ] Limpieza Profunda WinSxS..." "Yellow"; dism /online /cleanup-image /StartComponentCleanup
         Write-Centered "[ 6/8 ] Purgando Visor de Eventos..." "Yellow"; wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
         Write-Centered "[ 7/8 ] Forzando Politicas (GPO)..." "Yellow"; gpupdate /force | Out-Null

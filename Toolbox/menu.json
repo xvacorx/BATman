@@ -1,12 +1,12 @@
 {
     "config": {
-        "version": "3.0.5",
+        "version": "3.0.6",
         "default_lang": "es"
     },
     "diccionario": {
         "title": {
-            "es": "TOOLBOX TECNICO PRO - By Viktor - V3.0.5",
-            "en": "TECH TOOLBOX PRO - By Viktor - V3.0.5"
+            "es": "TOOLBOX TECNICO PRO - By Viktor - V3.0.6",
+            "en": "TECH TOOLBOX PRO - By Viktor - V3.0.6"
         },
         "legend": {
             "es": "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Borrado/Reset]",
