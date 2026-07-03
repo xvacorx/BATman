@@ -11,11 +11,8 @@ IF %ERRORLEVEL% NEQ 0 (
 
 :UACPrompt
 IF %ERRORLEVEL% NEQ 0 (
-    ECHO Set UAC = CreateObject^("Shell.Application"^) > "%TEMP%\elevate.vbs"
-    ECHO UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%TEMP%\elevate.vbs"
-    START "" "%TEMP%\elevate.vbs"
-    DEL "%TEMP%\elevate.vbs"
-    EXIT /B
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/c', '\"%~s0\"' -Verb RunAs"
+    goto :eof
 )
 
 for %%P in ("%~dp0.") do set "current_drive=%%~dP"

@@ -24,30 +24,30 @@ if exist "%TEST_STATUS_FILE%" (
 :run_tests
 set "ALL_TESTS_OK=true"
 
-echo [%%date%% %%time%%] Test: Write access. > "%LOG_FILE%" 2>&1
+echo [%date% %time%] Test: Write access. > "%LOG_FILE%" 2>&1
 if !errorlevel! equ 0 (
-    echo [%%date%% %%time%%] Test 1: File system access OK. >> "%LOG_FILE%"
+    echo [%date% %time%] Test 1: File system access OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
 
 powershell.exe -NoProfile -Command "Exit 0" >nul 2>&1
 if !errorlevel! equ 0 (
-    echo [%%date%% %%time%%] Test 2: powershell.exe found OK. >> "%LOG_FILE%"
+    echo [%date% %time%] Test 2: powershell.exe found OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
 
 msg /? >nul 2>&1
 if !errorlevel! equ 0 (
-    echo [%%date%% %%time%%] Test 3: msg command found OK. >> "%LOG_FILE%"
+    echo [%date% %time%] Test 3: msg command found OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
 
 shutdown /? >nul 2>&1
 if !errorlevel! equ 0 (
-    echo [%%date%% %%time%%] Test 4: shutdown command found OK. >> "%LOG_FILE%"
+    echo [%date% %time%] Test 4: shutdown command found OK. >> "%LOG_FILE%"
 ) else (
     set "ALL_TESTS_OK=false"
 )
@@ -62,24 +62,25 @@ if "%ALL_TESTS_OK%"=="true" (
     echo Please check the log file "%LOG_FILE%" for more details.
     echo The script will now close.
     echo.
-    exit /b 1
+    goto :eof
 )
 
 :main_operation
 echo 0 > "%LAST_ACTIVITY_FILE%"
 del "%WARNING_SENT_FILE%" 2>nul
 
-:loop
+:new_loop
+:: Calling powershell in loop adds overhead but prevents locking the script if we used a persistent process without proper job management.
 powershell.exe -NoProfile -Command "& { Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class UserActivity{[StructLayout(LayoutKind.Sequential)]struct LASTINPUTINFO{public uint cbSize;public uint dwTime;}[DllImport(\"user32.dll\")]public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);public static long GetIdleTime(){LASTINPUTINFO lastInputInfo = new LASTINPUTINFO();lastInputInfo.cbSize = (uint)Marshal.SizeOf(lastInputInfo);GetLastInputInfo(ref lastInputInfo);return Environment.TickCount - lastInputInfo.dwTime;}}'; $idleMs = [UserActivity]::GetIdleTime(); $idleSec = [int]($idleMs / 1000); Write-Output $idleSec; }" > "%LAST_ACTIVITY_FILE%"
 
 set /p INACTIVITY_SECONDS=<"%LAST_ACTIVITY_FILE%"
 
-if %INACTIVITY_SECONDS% GEQ %WARNING_THRESHOLD% (
+if !INACTIVITY_SECONDS! GEQ %WARNING_THRESHOLD% (
     if not exist "%WARNING_SENT_FILE%" (
         msg * "ATTENTION: No activity detected in the last 40 minutes. The computer will shut down in 5 more minutes if no activity is detected."
         echo true > "%WARNING_SENT_FILE%"
     )
-    if %INACTIVITY_SECONDS% GEQ %SHUTDOWN_THRESHOLD% (
+    if !INACTIVITY_SECONDS! GEQ %SHUTDOWN_THRESHOLD% (
         shutdown /s /f /t 0
     )
 ) else (
@@ -89,4 +90,4 @@ if %INACTIVITY_SECONDS% GEQ %WARNING_THRESHOLD% (
 )
 
 timeout /t %CHECK_INTERVAL% /nobreak >nul
-goto loop
+goto new_loop

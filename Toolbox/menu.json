@@ -1,12 +1,12 @@
 {
     "config": {
-        "version": "3.0.6",
+        "version": "3.1.0",
         "default_lang": "es"
     },
     "diccionario": {
         "title": {
-            "es": "TOOLBOX TECNICO PRO - By Viktor - V3.0.6",
-            "en": "TECH TOOLBOX PRO - By Viktor - V3.0.6"
+            "es": "TOOLBOX TECNICO PRO - By Viktor - V3.1.0",
+            "en": "TECH TOOLBOX PRO - By Viktor - V3.1.0"
         },
         "legend": {
             "es": "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Borrado/Reset]",
@@ -88,6 +88,13 @@
                     "label_es": "Identidad y Usuarios Locales",
                     "label_en": "Identity & Local Users",
                     "target": "menu_identidad",
+                    "color": "White"
+                },
+                {
+                    "tecla": "9",
+                    "label_es": "Utilidades Extras (Ping, Hash, Sleep, etc)",
+                    "label_en": "Extra Utilities (Ping, Hash, Sleep, etc)",
+                    "target": "menu_utils",
                     "color": "White"
                 },
                 {
@@ -263,6 +270,26 @@
                     "label_en": "Hard Reset Windows Update",
                     "target": "cmd_rep_wu",
                     "color": "Red"
+                },
+                {
+                    "tecla": "7",
+                    "label_es": "Actualizar Winget y PowerShell (Win 10)",
+                    "label_en": "Update Winget & PowerShell (Win 10)",
+                    "target": "cmd_rep_win10_update",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
+                    "tecla": "8",
+                    "label_es": "Forzar Upgrade a Windows Pro (Offline)",
+                    "label_en": "Force Upgrade to Windows Pro (Offline)",
+                    "target": "cmd_rep_win_pro",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
                 },
                 {
                     "tecla": "0",
@@ -450,6 +477,16 @@
                     "label_en": "Toggle Safe Mode",
                     "target": "cmd_soft_safe",
                     "color": "Yellow"
+                },
+                {
+                    "tecla": "5",
+                    "label_es": "Instaladores y Activadores de Windows/Office (MAS)",
+                    "label_en": "Windows/Office Installers & Activators (MAS)",
+                    "target": "cmd_soft_mas",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
                 },
                 {
                     "tecla": "0",
@@ -734,6 +771,61 @@
                     "tecla": "0",
                     "label_es": "Volver",
                     "label_en": "Go Back",
+                    "target": "principal",
+                    "color": "Gray"
+                }
+            ]
+        },
+        "menu_utils": {
+            "titulo": {
+                "es": "UTILIDADES EXTRAS",
+                "en": "EXTRA UTILITIES"
+            },
+            "opciones": [
+                {
+                    "tecla": "1",
+                    "label_es": "Anti Sleep (Evitar que la PC se suspenda)",
+                    "label_en": "Anti Sleep (Prevent PC from sleeping)",
+                    "target": "cmd_util_antisleep",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
+                    "tecla": "2",
+                    "label_es": "Ping Check (Ping a multiples IPs)",
+                    "label_en": "Ping Check (Ping multiple IPs)",
+                    "target": "cmd_util_ping",
+                    "color": "White",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
+                    "tecla": "3",
+                    "label_es": "Generar Hash de Archivos (MD5/SHA1/SHA256)",
+                    "label_en": "Generate File Hash (MD5/SHA1/SHA256)",
+                    "target": "cmd_util_hash",
+                    "color": "White",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
+                    "tecla": "4",
+                    "label_es": "Programar Apagado Automatico",
+                    "label_en": "Schedule Automatic Shutdown",
+                    "target": "cmd_util_shutdown",
+                    "color": "White",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
+                    "tecla": "0",
+                    "label_es": "Volver al Menu Principal",
+                    "label_en": "Return to Main Menu",
                     "target": "principal",
                     "color": "Gray"
                 }

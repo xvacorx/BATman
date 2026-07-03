@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.0.6
+# TOOLBOX TECNICO PRO - v3.1.0
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -143,7 +143,7 @@ if ($hasValidJsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Cargando motor v3.0.6 desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor v3.1.0 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
@@ -205,9 +205,9 @@ $Actions = @{
     "cmd_diag_lic" = { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" } }
     "cmd_diag_bsod" = { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List }
     "cmd_diag_disk" = { if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) { Get-PhysicalDisk | Select-Object MediaType, Model, HealthStatus | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Centered $_.Trim() "White" } } }
-    "cmd_diag_batt" = { powercfg /batteryreport /output "$PublicDesktop\BatteryReport.html" | Out-Null; if (Test-Path "$PublicDesktop\BatteryReport.html") { Invoke-Item "$PublicDesktop\BatteryReport.html"; Write-Centered "OK" "Green" } }
+    "cmd_diag_batt" = { powercfg /batteryreport /output "$PublicDesktop\BatteryReport.html" | Out-Null; if ([string]::IsNullOrWhiteSpace($PublicDesktop) -eq $false -and (Test-Path "$PublicDesktop\BatteryReport.html")) { Invoke-Item "$PublicDesktop\BatteryReport.html"; Write-Centered "OK" "Green" } }
     "cmd_diag_inv" = { "Inventario" | Out-File "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt" -Encoding UTF8; Write-Centered "OK" "Green" }
-    "cmd_diag_logs" = { if (Test-Path $logPath) { Get-Content $logPath -Tail 15 | ForEach-Object { Write-Centered $_ "White" } } }
+    "cmd_diag_logs" = { if ([string]::IsNullOrWhiteSpace($logPath) -eq $false -and (Test-Path $logPath)) { Get-Content $logPath -Tail 15 | ForEach-Object { Write-Centered $_ "White" } } }
 
     # REPARACION
     "cmd_rep_sfc" = { &$Accion_Reparacion; Play-FinishBeep }
@@ -323,7 +323,7 @@ $Actions = @{
     # OPTIMIZACIONES
     "cmd_opt_fastoff" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force; Write-Centered "OK" "Green" }
     "cmd_opt_faston" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force; Write-Centered "OK" "Green" }
-    "cmd_opt_godmode" = { $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"; if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }; Write-Centered "OK" "Green" }
+    "cmd_opt_godmode" = { $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"; if ([string]::IsNullOrWhiteSpace($path) -eq $false -and -not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }; Write-Centered "OK" "Green" }
     "cmd_opt_bloat" = {
         Write-Centered "Aniquilando Bloatware..." "Yellow"
         $bloat = @("*bing*", "*xboxapp*", "*gethelp*", "*solitaire*", "*people*", "*skype*")
@@ -394,7 +394,7 @@ $Actions = @{
 
     # IMPRESORAS
     "cmd_rep_spool" = { Stop-Service Spooler -Force -ErrorAction SilentlyContinue; Remove-Item "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service Spooler -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
-    "cmd_print_folder" = { $p = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"; if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; Write-Centered "OK" "Green" }
+    "cmd_print_folder" = { $p = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"; if ([string]::IsNullOrWhiteSpace($p) -eq $false -and -not (Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; Write-Centered "OK" "Green" }
     "cmd_print_del" = { $printers = Get-Printer; $i=1; foreach($p in $printers){ Write-Host "  $i. $($p.Name)" -ForegroundColor White; $i++ }; $s = Read-Host "`n Borrar nro (0 cancelar)"; if([int]$s -gt 0 -and [int]$s -le $printers.Count){ Remove-Printer -Name $printers[[int]$s-1].Name -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" } }
     "cmd_print_driver" = { $drivers = Get-PrinterDriver; $i=1; foreach($d in $drivers){ Write-Host "  $i. $($d.Name)" -ForegroundColor White; $i++ }; $s = Read-Host "`n Borrar nro (0 cancelar)"; if([int]$s -gt 0 -and [int]$s -le $drivers.Count){ Remove-PrinterDriver -Name $drivers[[int]$s-1].Name -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" } }
     "cmd_print_fw" = { Enable-NetFirewallRule -Name "FPS-ICMP4-ERQ-In" -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName "Toolbox_PrintTCP" -Direction Inbound -Protocol TCP -LocalPort 139,445 -Action Allow -ErrorAction SilentlyContinue | Out-Null; Write-Centered "OK" "Green" }
@@ -422,6 +422,156 @@ $Actions = @{
     "action_credits" = {
         Write-Centered "=== CREDITOS ===" "Cyan"; Write-Host "`n"; Write-Centered "Toolbox Tecnico Pro - By Viktor" "White"
         Write-Centered "Vik Tools" "Magenta"; Write-Host "`n"; Write-Centered "GitHub: github.com/xvacorx" "Cyan"; Start-Process "https://github.com/xvacorx"
+    }
+
+    # UTILIDADES EXTRAS (Modules)
+    "cmd_util_antisleep" = {
+        Write-Centered "=== ANTI SLEEP ===" "Yellow"
+        Write-Host "`n"
+        Write-Centered "1. Activar | 2. Desactivar | 0. Volver" "White"
+        $ans = Read-SingleKey
+        if ($ans -eq '1') {
+            # Start background powershell job so it stays running
+            $psCmd = "Add-Type -AssemblyName System.Windows.Forms; while (`$true) { `$pos = [System.Windows.Forms.Cursor]::Position; `$x = `$pos.X + 1; `$y = `$pos.Y; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(`$x,`$y); Start-Sleep -Seconds 1; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(`$pos.X,`$pos.Y); Start-Sleep -Seconds 60 }"
+            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"$psCmd`""
+            Write-Centered "Anti Sleep Activado (Background)." "Green"
+        } elseif ($ans -eq '2') {
+            # Kill instances running the specific logic
+            Get-WmiObject Win32_Process -Filter "Name='powershell.exe' AND CommandLine LIKE '%System.Windows.Forms.Cursor%'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            Write-Centered "Anti Sleep Desactivado." "Green"
+        }
+    }
+    "cmd_util_ping" = {
+        Write-Centered "=== PING CHECK ===" "Cyan"
+        Write-Host "`n"
+        Write-Centered "Ingresa una IP o Hostname (o 'bulk' para usar ips.txt en el escritorio):" "Yellow"
+        $target = Read-Host "Target"
+        if ($target) {
+            if ($target.ToLower() -eq 'bulk') {
+                $file = "$PublicDesktop\ips.txt"
+                if ([string]::IsNullOrWhiteSpace($file) -eq $false -and (Test-Path $file)) {
+                    Write-Centered "Procesando $file ..." "Yellow"
+                    Get-Content $file | ForEach-Object {
+                        $ip = $_.Trim()
+                        if ($ip) {
+                            if (Test-Connection $ip -Count 1 -Quiet -ErrorAction SilentlyContinue) { Write-Centered "$ip [OK]" "Green" }
+                            else { Write-Centered "$ip [FAILED]" "Red" }
+                        }
+                    }
+                } else {
+                    Write-Centered "No se encontro el archivo $file." "Red"
+                    Write-Centered "Crea un archivo de texto llamado ips.txt en el Escritorio Publico." "Yellow"
+                }
+            } else {
+                if (Test-Connection $target -Count 4 -ErrorAction SilentlyContinue) {
+                    Write-Centered "$target [OK] - Conectividad Exitosa" "Green"
+                } else {
+                    Write-Centered "$target [FAILED] - Sin Respuesta" "Red"
+                }
+            }
+        }
+    }
+    "cmd_util_hash" = {
+        Write-Centered "=== GENERADOR DE HASH ===" "Magenta"
+        Write-Host "`n"
+        $path = Read-Host "Ruta del archivo (Arrastra el archivo aqui)"
+        if ($path) {
+            $path = $path.Trim('"')
+            if ([string]::IsNullOrWhiteSpace($path) -eq $false -and (Test-Path $path -PathType Leaf)) {
+                Write-Centered "MD5:" "Yellow"; (Get-FileHash $path -Algorithm MD5).Hash | Write-Centered -color "White"
+                Write-Centered "SHA1:" "Yellow"; (Get-FileHash $path -Algorithm SHA1).Hash | Write-Centered -color "White"
+                Write-Centered "SHA256:" "Yellow"; (Get-FileHash $path -Algorithm SHA256).Hash | Write-Centered -color "White"
+            } else { Write-Centered "Archivo no encontrado." "Red" }
+        }
+    }
+    "cmd_util_shutdown" = {
+        Write-Centered "=== PROGRAMADOR DE APAGADO ===" "Red"
+        Write-Host "`n"
+        Write-Centered "1. Apagar en X minutos | 2. Cancelar Apagado | 0. Volver" "White"
+        $ans = Read-SingleKey
+        if ($ans -eq '1') {
+            $mins = Read-Host "Minutos para apagar"
+            if ($mins -match '^\d+$') {
+                $secs = [int]$mins * 60
+                shutdown /s /f /t $secs
+                Write-Centered "Apagado programado en $mins minutos." "Green"
+            }
+        } elseif ($ans -eq '2') {
+            shutdown /a | Out-Null
+            Write-Centered "Apagado programado cancelado." "Yellow"
+        }
+    }
+    "cmd_rep_win10_update" = {
+        Write-Centered "=== ACTUALIZAR WINGET Y POWERSHELL (WIN 10) ===" "Cyan"
+        Write-Host "`n"
+        Write-Centered "Este proceso descargara e instalara los paquetes AppInstaller (Winget) y PowerShell Core (pwsh)." "Yellow"
+        Write-Centered "Puede demorar varios minutos dependiendo de la conexion a internet." "White"
+        Write-Host "`n"; Write-Host (" " * 30) "+ Deseas continuar? (S/N): " -ForegroundColor Gray -NoNewline
+        $ans = Read-SingleKey
+        Write-Host $ans -ForegroundColor Cyan
+
+        if ($ans -eq 'S' -or $ans -eq 'Y') {
+            Write-Centered "Descargando e Instalando AppInstaller (Winget)..." "Cyan"
+            try {
+                $urlWinget = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+                $wingetPath = "$env:TEMP\winget.msixbundle"
+                Invoke-WebRequest -Uri $urlWinget -OutFile $wingetPath -UseBasicParsing -ErrorAction Stop
+                Add-AppxPackage -Path $wingetPath -ErrorAction Stop
+                Write-Centered "[OK] Winget Instalado/Actualizado." "Green"
+            } catch {
+                Write-Centered "[FALLO] Error actualizando Winget: $($_.Exception.Message)" "Red"
+            }
+
+            Write-Centered "Descargando e Instalando PowerShell Core..." "Cyan"
+            try {
+                $urlPwsh = "https://github.com/PowerShell/PowerShell/releases/latest/download/PowerShell-7.4.3-win-x64.msi"
+                $pwshPath = "$env:TEMP\pwsh.msi"
+                Invoke-WebRequest -Uri $urlPwsh -OutFile $pwshPath -UseBasicParsing -ErrorAction Stop
+                Start-Process msiexec.exe -ArgumentList "/i `"$pwshPath`" /quiet" -Wait -ErrorAction Stop
+                Write-Centered "[OK] PowerShell Core Instalado/Actualizado." "Green"
+            } catch {
+                Write-Centered "[FALLO] Error actualizando PowerShell: $($_.Exception.Message)" "Red"
+            }
+        }
+    }
+    "cmd_rep_win_pro" = {
+        Write-Centered "=== FORZAR UPGRADE A WINDOWS PRO (OFFLINE) ===" "Yellow"
+        Write-Host "`n"
+        Write-Centered "Esta funcion intentara actualizar Windows a la version Pro." "White"
+        Write-Centered "Para que funcione, es fundamental que la PC este OFFLINE." "Red"
+        Write-Host "`n"; Write-Host (" " * 20) "+ Deseas deshabilitar la red temporalmente y aplicar la clave? (S/N): " -ForegroundColor Gray -NoNewline
+        $ans = Read-SingleKey
+        Write-Host $ans -ForegroundColor Cyan
+
+        if ($ans -eq 'S' -or $ans -eq 'Y') {
+            Write-Centered "Deshabilitando adaptadores de red..." "Yellow"
+            $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
+            foreach ($a in $adapters) { Disable-NetAdapter -Name $a.Name -Confirm:$false }
+
+            Write-Centered "Aplicando clave VK7JG-NPHTM-C97JM-9MPGT-3V66T..." "Cyan"
+            try {
+                cscript //nologo c:\windows\system32\slmgr.vbs /ipk VK7JG-NPHTM-C97JM-9MPGT-3V66T | Out-Null
+                Start-Process -FilePath "changepk.exe" -ArgumentList "/ProductKey VK7JG-NPHTM-C97JM-9MPGT-3V66T" -Wait -NoNewWindow
+                Write-Centered "[OK] Proceso completado. La PC podria reiniciarse automaticamente." "Green"
+            } catch {
+                Write-Centered "[FALLO] Error al aplicar clave: $($_.Exception.Message)" "Red"
+            }
+
+            Write-Centered "Restaurando adaptadores de red..." "Yellow"
+            foreach ($a in $adapters) { Enable-NetAdapter -Name $a.Name -Confirm:$false }
+            Write-Centered "Red restaurada." "Green"
+        }
+    }
+    "cmd_soft_mas" = {
+        Write-Centered "=== ACTIVADOR MAS (MASSGRAVE) ===" "Cyan"
+        Write-Host "`n"
+        Write-Centered "Abriendo script oficial de Massgrave (irm get.activated.win | iex)..." "Yellow"
+        try {
+            Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"irm get.activated.win | iex`""
+            Write-Centered "[OK] Script ejecutado en nueva ventana." "Green"
+        } catch {
+            Write-Centered "[FALLO] No se pudo lanzar el script: $($_.Exception.Message)" "Red"
+        }
     }
 }
 
@@ -519,7 +669,15 @@ while ($true) {
         elseif ($target.StartsWith("cmd_") -or $target.StartsWith("action_")) {
             [Console]::Clear(); Show-Header
             Write-Centered "=== $labelName ===" "Magenta"; Write-Host "`n"
-            if ($Actions.ContainsKey($target)) { & $Actions[$target] }
+            if ($Actions.ContainsKey($target)) {
+                try {
+                    & $Actions[$target]
+                } catch {
+                    Write-Host "`n"
+                    Write-Centered "[!] SE DETECTO UN ERROR EN LA EJECUCION:" "Red"
+                    Write-Centered $_.Exception.Message "White" "Red"
+                }
+            }
             else { Write-Centered "[!] Comando no encontrado en el motor PS1: $target" "Red" }
             Pause-Menu
         }
