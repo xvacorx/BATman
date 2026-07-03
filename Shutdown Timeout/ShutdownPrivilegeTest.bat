@@ -9,4 +9,4 @@ echo Attempting to cancel the shutdown...
 shutdown /a
 
 echo Test process finished. If it didn't shut down, permissions are working.
-pause
+timeout /t 3 >nul

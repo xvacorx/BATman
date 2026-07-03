@@ -1,35 +1,55 @@
 @echo off
 setlocal
-
 NET SESSION >NUL 2>&1
 IF %ERRORLEVEL% NEQ 0 (
-    echo Requesting administrative privileges...
-    goto :UACPrompt
-) ELSE (
-    echo Running with administrative privileges.
-)
-
-:UACPrompt
-IF %ERRORLEVEL% NEQ 0 (
+    echo [i] Solicitando permisos de administrador para lectura completa...
     powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/c', '\"%~s0\"' -Verb RunAs"
     goto :eof
 )
 
-for %%P in ("%~dp0.") do set "current_drive=%%~dP"
+:MENU
+cls
+echo ==============================================
+echo [ GENERADOR DE HASH ]
+echo ==============================================
+echo 1. Sacar MD5/SHA de un archivo
+echo 2. Extraer Hardware Hash (Autopilot/Intune CSV)
+echo 0. Salir
+echo.
+set /p "opt=Selecciona una opcion: "
 
-set "log_folder=%current_drive%\MDMLogs"
+if "%opt%"=="1" goto :FILEHASH
+if "%opt%"=="2" goto :HWHASH
+if "%opt%"=="0" goto :eof
+goto :MENU
 
-if not exist "%log_folder%" (
-    echo Creating folder: %log_folder%
-    md "%log_folder%"
+:FILEHASH
+echo.
+set /p "file_path=Arrastra el archivo aqui: "
+:: Remove quotes
+set "file_path=%file_path:"=%"
+
+if not exist "%file_path%" (
+    echo [!] Archivo no encontrado.
+    timeout /t 3 >nul
+    goto :MENU
 )
 
-for /f "tokens=2 delims==" %%s in ('wmic bios get serialnumber /value ^| find "SerialNumber="') do set "serial_number=%%s"
+echo.
+echo [i] Calculando Hashes...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Write-Host 'MD5: ' -NoNewline -ForegroundColor Yellow; (Get-FileHash -Path '%file_path%' -Algorithm MD5).Hash; Write-Host 'SHA1: ' -NoNewline -ForegroundColor Yellow; (Get-FileHash -Path '%file_path%' -Algorithm SHA1).Hash; Write-Host 'SHA256: ' -NoNewline -ForegroundColor Yellow; (Get-FileHash -Path '%file_path%' -Algorithm SHA256).Hash;"
 
-set "cab_path=%log_folder%\%serial_number%.cab"
+echo.
+echo Presiona cualquier tecla para volver al menu.
+pause >nul
+goto :MENU
 
-echo Collecting diagnostics into: "%cab_path%"
-MDMDiagnosticsTool -area autopilot -cab "%cab_path%"
+:HWHASH
+echo.
+echo [i] Extrayendo Hardware Hash (WMI Nativo)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; try { $devDetail = (Get-CimInstance -CimSession (New-CimSession) -Namespace root/cimv2/mdm/dmmap -Class MDM_DevDetail_Ext01 -Filter \"InstanceID='Ext' AND ParentID='./DevDetail'\"); $serial = (Get-CimInstance -Class Win32_BIOS).SerialNumber; $product = (Get-CimInstance -Class Win32_OperatingSystem).SerialNumber; $csvPath = Join-Path [Environment]::GetFolderPath('Desktop') 'HardwareHash.csv'; 'Device Serial Number,Windows Product ID,Hardware Hash' | Out-File -FilePath $csvPath -Encoding utf8; \"$serial,$product,$($devDetail.DeviceHardwareData)\" | Out-File -FilePath $csvPath -Encoding utf8 -Append; Write-Host '[OK] CSV generado exitosamente en el Escritorio:' -ForegroundColor Green; Write-Host $csvPath -ForegroundColor Cyan } catch { Write-Host '[!] Error al extraer Hardware Hash:' -ForegroundColor Red; Write-Host $_.Exception.Message -ForegroundColor White }"
 
-endlocal
-pause
+echo.
+echo Presiona cualquier tecla para volver al menu.
+pause >nul
+goto :MENU

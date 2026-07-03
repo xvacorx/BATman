@@ -814,6 +814,16 @@
                 },
                 {
                     "tecla": "4",
+                    "label_es": "Startup Manager (Iniciar app con Windows)",
+                    "label_en": "Startup Manager (Start app with Windows)",
+                    "target": "cmd_util_startup",
+                    "color": "White",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
+                    "tecla": "5",
                     "label_es": "Programar Apagado Automatico",
                     "label_en": "Schedule Automatic Shutdown",
                     "target": "cmd_util_shutdown",
