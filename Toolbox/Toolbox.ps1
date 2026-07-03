@@ -431,9 +431,9 @@ $Actions = @{
         Write-Centered "1. Activar | 2. Desactivar | 0. Volver" "White"
         $ans = Read-SingleKey
         if ($ans -eq '1') {
-            # Start background powershell job so it stays running
-            $psCmd = "`$code = '[DllImport(`\"kernel32.dll`\")] public static extern uint SetThreadExecutionState(uint esFlags);'; `$type = Add-Type -MemberDefinition `$code -Name 'Win32' -Namespace 'System' -PassThru; while (`$true) { `$type::SetThreadExecutionState(0x80000003); Start-Sleep -Seconds 60 }"
-            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"$psCmd`""
+            # Start background powershell job so it stays running. Usamos Base64 para evitar errores de parseo con comillas en iex.
+            $psCmdB64 = "JABjAG8AZABlACAAPQAgACcAWwBEAGwAbABJAG0AcABvAHIAdAAoACIAawBlAHIAbgBlAGwAMwAyAC4AZABsAGwAIgApAF0AIABwAHUAYgBsAGkAYwAgAHMAdABhAHQAaQBjACAAZQB4AHQAZQByAG4AIAB1AGkAbgB0ACAAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAdQBpAG4AdAAgAGUAcwBGAGwAYQBnAHMAKQA7ACcAOwAgACQAdAB5AHAAZQAgAD0AIABBAGQAZAAtAFQAeQBwAGUAIAAtAE0AZQBtAGIAZQByAEQAZQBmAGkAbgBpAHQAaQBvAG4AIAAkAGMAbwBkAGUAIAAtAE4AYQBtAGUAIAAnAFcAaQBuADMAMgAnACAALQBOAGEAbQBlAHMAcABhAGMAZQAgACcAUwB5AHMAdABlAG0AJwAgAC0AUABhAHMAcwBUAGgAcgB1ADsAIAB3AGgAaQBsAGUAIAAoACQAdAByAHUAZQApACAAewAgACQAdAB5AHAAZQA6ADoAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAMAB4ADgAMAAwADAAMAAwADAAMwApADsAIABTAHQAYQByAHQALQBTAGwAZQBlAHAAIAAtAFMAZQBjAG8AbgBkAHMAIAA2ADAAIAB9AA=="
+            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $psCmdB64
             Write-Centered "Anti Sleep Activado (Bloqueando suspension de sistema y pantalla)." "Green"
         } elseif ($ans -eq '2') {
             # Kill instances running the specific logic
