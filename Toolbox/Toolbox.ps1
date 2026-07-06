@@ -431,13 +431,13 @@ $Actions = @{
         Write-Centered "1. Activar | 2. Desactivar | 0. Volver" "White"
         $ans = Read-SingleKey
         if ($ans -eq '1') {
-            # Start background powershell job so it stays running
-            $psCmd = "Add-Type -AssemblyName System.Windows.Forms; while (`$true) { `$pos = [System.Windows.Forms.Cursor]::Position; `$x = `$pos.X + 1; `$y = `$pos.Y; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(`$x,`$y); Start-Sleep -Seconds 1; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(`$pos.X,`$pos.Y); Start-Sleep -Seconds 60 }"
-            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"$psCmd`""
-            Write-Centered "Anti Sleep Activado (Background)." "Green"
+            # Start background powershell job so it stays running. Usamos Base64 para evitar errores de parseo con comillas en iex.
+            $psCmdB64 = "JABjAG8AZABlACAAPQAgACcAWwBEAGwAbABJAG0AcABvAHIAdAAoACIAawBlAHIAbgBlAGwAMwAyAC4AZABsAGwAIgApAF0AIABwAHUAYgBsAGkAYwAgAHMAdABhAHQAaQBjACAAZQB4AHQAZQByAG4AIAB1AGkAbgB0ACAAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAdQBpAG4AdAAgAGUAcwBGAGwAYQBnAHMAKQA7ACcAOwAgACQAdAB5AHAAZQAgAD0AIABBAGQAZAAtAFQAeQBwAGUAIAAtAE0AZQBtAGIAZQByAEQAZQBmAGkAbgBpAHQAaQBvAG4AIAAkAGMAbwBkAGUAIAAtAE4AYQBtAGUAIAAnAFcAaQBuADMAMgAnACAALQBOAGEAbQBlAHMAcABhAGMAZQAgACcAUwB5AHMAdABlAG0AJwAgAC0AUABhAHMAcwBUAGgAcgB1ADsAIAB3AGgAaQBsAGUAIAAoACQAdAByAHUAZQApACAAewAgACQAdAB5AHAAZQA6ADoAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAMAB4ADgAMAAwADAAMAAwADAAMwApADsAIABTAHQAYQByAHQALQBTAGwAZQBlAHAAIAAtAFMAZQBjAG8AbgBkAHMAIAA2ADAAIAB9AA=="
+            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $psCmdB64
+            Write-Centered "Anti Sleep Activado (Bloqueando suspension de sistema y pantalla)." "Green"
         } elseif ($ans -eq '2') {
             # Kill instances running the specific logic
-            Get-WmiObject Win32_Process -Filter "Name='powershell.exe' AND CommandLine LIKE '%System.Windows.Forms.Cursor%'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            Get-WmiObject Win32_Process -Filter "Name='powershell.exe' AND CommandLine LIKE '%SetThreadExecutionState%'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
             Write-Centered "Anti Sleep Desactivado." "Green"
         }
     }
@@ -454,8 +454,15 @@ $Actions = @{
                     Get-Content $file | ForEach-Object {
                         $ip = $_.Trim()
                         if ($ip) {
-                            if (Test-Connection $ip -Count 1 -Quiet -ErrorAction SilentlyContinue) { Write-Centered "$ip [OK]" "Green" }
-                            else { Write-Centered "$ip [FAILED]" "Red" }
+                            $res = Test-Connection $ip -Count 1 -ErrorAction SilentlyContinue
+                            if ($res) {
+                                $resolvedIp = $res.IPv4Address.IPAddressToString; if (-not $resolvedIp) { $resolvedIp = $res.ProtocolAddress }
+                                $hostName = "?"; try { $hostName = [System.Net.Dns]::GetHostEntry($resolvedIp).HostName } catch { }
+                                $mac = "?"; try { $arp = arp -a $resolvedIp | Select-String -Pattern $resolvedIp; if ($arp) { $mac = ($arp -split '\s+')[2] } } catch { }
+                                Write-Centered "$ip [OK] - IP: $resolvedIp - MAC: $mac - Host: $hostName" "Green"
+                            } else {
+                                Write-Centered "$ip [FAILED]" "Red"
+                            }
                         }
                     }
                 } else {
@@ -463,8 +470,12 @@ $Actions = @{
                     Write-Centered "Crea un archivo de texto llamado ips.txt en el Escritorio Publico." "Yellow"
                 }
             } else {
-                if (Test-Connection $target -Count 4 -ErrorAction SilentlyContinue) {
-                    Write-Centered "$target [OK] - Conectividad Exitosa" "Green"
+                $res = Test-Connection $target -Count 1 -ErrorAction SilentlyContinue
+                if ($res) {
+                    $resolvedIp = $res.IPv4Address.IPAddressToString; if (-not $resolvedIp) { $resolvedIp = $res.ProtocolAddress }
+                    $hostName = "?"; try { $hostName = [System.Net.Dns]::GetHostEntry($resolvedIp).HostName } catch { }
+                    $mac = "?"; try { $arp = arp -a $resolvedIp | Select-String -Pattern $resolvedIp; if ($arp) { $mac = ($arp -split '\s+')[2] } } catch { }
+                    Write-Centered "$target [OK] - IP: $resolvedIp - MAC: $mac - Host: $hostName" "Green"
                 } else {
                     Write-Centered "$target [FAILED] - Sin Respuesta" "Red"
                 }
@@ -474,14 +485,59 @@ $Actions = @{
     "cmd_util_hash" = {
         Write-Centered "=== GENERADOR DE HASH ===" "Magenta"
         Write-Host "`n"
-        $path = Read-Host "Ruta del archivo (Arrastra el archivo aqui)"
+        Write-Centered "1. Sacar MD5/SHA de un archivo | 2. Extraer Hardware Hash (CSV) | 0. Volver" "White"
+        $ans = Read-SingleKey
+        if ($ans -eq '1') {
+            $path = Read-Host "Ruta del archivo (Arrastra el archivo aqui)"
+            if ($path) {
+                $path = $path.Trim('"')
+                if ([string]::IsNullOrWhiteSpace($path) -eq $false -and (Test-Path $path -PathType Leaf)) {
+                    Write-Centered "MD5:" "Yellow"; (Get-FileHash $path -Algorithm MD5).Hash | Write-Centered -color "White"
+                    Write-Centered "SHA1:" "Yellow"; (Get-FileHash $path -Algorithm SHA1).Hash | Write-Centered -color "White"
+                    Write-Centered "SHA256:" "Yellow"; (Get-FileHash $path -Algorithm SHA256).Hash | Write-Centered -color "White"
+                } else { Write-Centered "Archivo no encontrado." "Red" }
+            }
+        } elseif ($ans -eq '2') {
+            try {
+                $devDetail = Get-CimInstance -Namespace root/cimv2/mdm/dmmap -Class MDM_DevDetail_Ext01 -Filter "InstanceID='Ext' AND ParentID='./DevDetail'" -ErrorAction Stop
+                $serial = (Get-CimInstance -Class Win32_BIOS).SerialNumber
+                $product = (Get-CimInstance -Class Win32_OperatingSystem).SerialNumber
+                $csvPath = "$PublicDesktop\HardwareHash.csv"
+                "Device Serial Number,Windows Product ID,Hardware Hash" | Out-File -FilePath $csvPath -Encoding utf8
+                "$serial,$product,$($devDetail.DeviceHardwareData)" | Out-File -FilePath $csvPath -Encoding utf8 -Append
+                Write-Centered "[OK] CSV generado exitosamente en el Escritorio." "Green"
+            } catch {
+                Write-Centered "[!] Error al extraer Hardware Hash. Requiere permisos de administrador." "Red"
+                Write-Centered $_.Exception.Message "White" "Red"
+            }
+        }
+    }
+    "cmd_util_startup" = {
+        Write-Centered "=== GESTOR DE INICIO (STARTUP) ===" "Cyan"
+        Write-Host "`n"
+        Write-Centered "Crea un acceso directo en la carpeta de Inicio de Windows." "Yellow"
+        $path = Read-Host "Arrastra un archivo aqui para iniciar con Windows"
         if ($path) {
             $path = $path.Trim('"')
-            if ([string]::IsNullOrWhiteSpace($path) -eq $false -and (Test-Path $path -PathType Leaf)) {
-                Write-Centered "MD5:" "Yellow"; (Get-FileHash $path -Algorithm MD5).Hash | Write-Centered -color "White"
-                Write-Centered "SHA1:" "Yellow"; (Get-FileHash $path -Algorithm SHA1).Hash | Write-Centered -color "White"
-                Write-Centered "SHA256:" "Yellow"; (Get-FileHash $path -Algorithm SHA256).Hash | Write-Centered -color "White"
-            } else { Write-Centered "Archivo no encontrado." "Red" }
+            if ([string]::IsNullOrWhiteSpace($path) -eq $false -and (Test-Path $path)) {
+                try {
+                    $wshell = New-Object -ComObject WScript.Shell
+                    $startupFolder = [Environment]::GetFolderPath('Startup')
+                    $shortcutPath = Join-Path $startupFolder (([System.IO.Path]::GetFileNameWithoutExtension($path)) + ".lnk")
+                    $shortcut = $wshell.CreateShortcut($shortcutPath)
+                    $shortcut.TargetPath = $path
+                    $shortcut.Save()
+                    if (Test-Path $shortcutPath) {
+                        Write-Centered "[OK] Acceso directo creado en Startup." "Green"
+                    } else {
+                        Write-Centered "[!] Error al crear el acceso directo." "Red"
+                    }
+                } catch {
+                    Write-Centered "[!] Error: $($_.Exception.Message)" "Red"
+                }
+            } else {
+                Write-Centered "Archivo no encontrado." "Red"
+            }
         }
     }
     "cmd_util_shutdown" = {
