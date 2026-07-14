@@ -1,0 +1,45 @@
+{
+  "communities": {
+    "0": [
+      "toolbox_toolbox",
+      "toolbox_toolbox_get_wmicim",
+      "toolbox_toolbox_play_finishbeep",
+      "toolbox_toolbox_read_singlekey",
+      "toolbox_toolbox_test_internet"
+    ],
+    "1": [
+      "toolbox_toolbox_pause_menu",
+      "toolbox_toolbox_show_header",
+      "toolbox_toolbox_write_centered"
+    ]
+  },
+  "cohesion": {
+    "0": 0.4,
+    "1": 0.6666666666666666
+  },
+  "gods": [
+    {
+      "id": "toolbox_toolbox_write_centered",
+      "label": "Write-Centered()",
+      "degree": 3
+    },
+    {
+      "id": "toolbox_toolbox_pause_menu",
+      "label": "Pause-Menu()",
+      "degree": 2
+    },
+    {
+      "id": "toolbox_toolbox_show_header",
+      "label": "Show-Header()",
+      "degree": 2
+    }
+  ],
+  "surprises": [],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `Write-Centered()` connect `Write-Centered` to `Toolbox.ps1`?",
+      "why": "High betweenness centrality (0.024) - this node is a cross-community bridge."
+    }
+  ]
+}
