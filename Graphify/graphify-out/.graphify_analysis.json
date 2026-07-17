@@ -3,25 +3,89 @@
     "0": [
       "toolbox_toolbox",
       "toolbox_toolbox_get_wmicim",
+      "toolbox_toolbox_pause_menu",
       "toolbox_toolbox_play_finishbeep",
       "toolbox_toolbox_read_singlekey",
-      "toolbox_toolbox_test_internet"
+      "toolbox_toolbox_show_header",
+      "toolbox_toolbox_test_internet",
+      "toolbox_toolbox_write_centered"
     ],
     "1": [
-      "toolbox_toolbox_pause_menu",
-      "toolbox_toolbox_show_header",
-      "toolbox_toolbox_write_centered"
+      "anti_sleep_antisleep",
+      "anti_sleep_antisleep_disable_antisleep",
+      "anti_sleep_antisleep_enable_antisleep",
+      "anti_sleep_antisleep_get_antisleepstatus",
+      "anti_sleep_antisleep_show_header"
+    ],
+    "2": [
+      "generate_hash_generatehash",
+      "generate_hash_generatehash_export_hardwarehash",
+      "generate_hash_generatehash_get_filehashes",
+      "generate_hash_generatehash_show_header",
+      "generate_hash_generatehash_test_isadmin"
+    ],
+    "3": [
+      "shutdown_timeout_shutdowntimeout",
+      "shutdown_timeout_shutdowntimeout_show_header",
+      "shutdown_timeout_shutdowntimeout_start_monitoring"
+    ],
+    "4": [
+      "copy_to_startup_copytostartup",
+      "copy_to_startup_copytostartup_show_header"
+    ],
+    "5": [
+      "ping_check_pingcheck",
+      "ping_check_pingcheck_show_header"
     ]
   },
   "cohesion": {
-    "0": 0.4,
-    "1": 0.6666666666666666
+    "0": 0.32142857142857145,
+    "1": 0.6,
+    "2": 0.5,
+    "3": 1.0,
+    "4": 1.0,
+    "5": 1.0
   },
   "gods": [
+    {
+      "id": "anti_sleep_antisleep_get_antisleepstatus",
+      "label": "Get-AntiSleepStatus()",
+      "degree": 3
+    },
     {
       "id": "toolbox_toolbox_write_centered",
       "label": "Write-Centered()",
       "degree": 3
+    },
+    {
+      "id": "anti_sleep_antisleep_enable_antisleep",
+      "label": "Enable-AntiSleep()",
+      "degree": 2
+    },
+    {
+      "id": "anti_sleep_antisleep_disable_antisleep",
+      "label": "Disable-AntiSleep()",
+      "degree": 2
+    },
+    {
+      "id": "generate_hash_generatehash_test_isadmin",
+      "label": "Test-IsAdmin()",
+      "degree": 2
+    },
+    {
+      "id": "generate_hash_generatehash_export_hardwarehash",
+      "label": "Export-HardwareHash()",
+      "degree": 2
+    },
+    {
+      "id": "shutdown_timeout_shutdowntimeout_show_header",
+      "label": "Show-Header()",
+      "degree": 2
+    },
+    {
+      "id": "shutdown_timeout_shutdowntimeout_start_monitoring",
+      "label": "Start-Monitoring()",
+      "degree": 2
     },
     {
       "id": "toolbox_toolbox_pause_menu",
@@ -37,9 +101,9 @@
   "surprises": [],
   "questions": [
     {
-      "type": "bridge_node",
-      "question": "Why does `Write-Centered()` connect `Write-Centered` to `Toolbox.ps1`?",
-      "why": "High betweenness centrality (0.024) - this node is a cross-community bridge."
+      "type": "no_signal",
+      "question": null,
+      "why": "Not enough signal to generate questions. This usually means the corpus has no AMBIGUOUS edges, no bridge nodes, no INFERRED relationships, and all communities are tightly cohesive. Add more files or run with --mode deep to extract richer edges."
     }
   ]
 }
