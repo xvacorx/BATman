@@ -1,0 +1,4 @@
+﻿# Graphify exclusions
+graphify-out/
+.graphifyignore
+Graphify/
