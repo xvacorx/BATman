@@ -1,9 +1,10 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.1.0
+# TOOLBOX TECNICO PRO - v3.2.0
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13 }
+catch { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 }
 
 if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $false }
 
@@ -11,6 +12,7 @@ if ($IsWindows) {
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         $scriptPath = $MyInvocation.MyCommand.Path
+        if ([string]::IsNullOrWhiteSpace($scriptPath)) { $scriptPath = $PSCommandPath }
         $isLocal = $false
         
         if (-not [string]::IsNullOrWhiteSpace($scriptPath)) {
@@ -23,7 +25,7 @@ if ($IsWindows) {
 
         if (-not $isLocal) {
             # Usamos un bloque try-catch dentro del comando remoto para que la ventana NO se cierre si falla
-            $remoteCmd = "try { iex (irm tinyurl.com/VikToolBox) } catch { Write-Host '[!] Error Fatal en la elevacion: ' + `$_.Exception.Message -ForegroundColor Red; Read-Host 'Presiona Enter para cerrar' }"
+            $remoteCmd = "try { iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1) } catch { Write-Host '[!] Error Fatal en la elevacion: ' + `$_.Exception.Message -ForegroundColor Red; Read-Host 'Presiona Enter para cerrar' }"
             Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"$remoteCmd`""
         } else {
             Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
@@ -36,7 +38,7 @@ if ($IsWindows) {
     if ($uid -ne "0") {
         Write-Host "Elevando privilegios (sudo)..." -ForegroundColor Yellow
         if ($PSCommandPath) { sudo pwsh -NoProfile -File "$PSCommandPath" }
-        else { sudo pwsh -NoProfile -Command "iex (irm tinyurl.com/VikToolBox)" }
+        else { sudo pwsh -NoProfile -Command "iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)" }
         exit
     }
 }
@@ -53,6 +55,19 @@ if ($Host.Name -eq "ConsoleHost") {
 # --- 3. FUNCIONES DE APOYO Y GLOBALES ---
 $logPath = "C:\Windows\Logs\Toolbox_Auditoria.log"
 $PublicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+if ([string]::IsNullOrWhiteSpace($PublicDesktop)) { $PublicDesktop = "$env:PUBLIC\Desktop" }
+
+function Write-AuditLog([string]$action, [string]$status = "OK", [string]$details = "") {
+    try {
+        $logDir = [System.IO.Path]::GetDirectoryName($logPath)
+        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+        $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        $username = [Environment]::UserName
+        $logEntry = "[$timestamp] [$username] [$status] - $action"
+        if ([string]::IsNullOrWhiteSpace($details) -eq $false) { $logEntry += " ($details)" }
+        Add-Content -Path $logPath -Value $logEntry -Encoding UTF8 -ErrorAction SilentlyContinue
+    } catch { }
+}
 
 function Write-Centered ($text, $color="White", $bg="Black") {
     $width = [Console]::WindowWidth; if ($width -le 0) { $width = 110 }
@@ -85,7 +100,7 @@ function Pause-Menu {
         $Host.UI.RawUI.FlushInputBuffer()
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     } catch {
-        $null = Read-Host # Fallback seguro por si la consola falla
+        $null = Read-Host
     }
 }
 
@@ -106,11 +121,37 @@ function Show-Header {
 }
 
 function Play-FinishBeep { try { [System.Console]::Beep(800, 150); Start-Sleep -Milliseconds 50; [System.Console]::Beep(1200, 400) } catch { } }
-function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$Filter = "") { try { if ($Filter) { return Get-CimInstance -ClassName $Class -Namespace $Namespace -Filter $Filter -ErrorAction Stop } else { return Get-CimInstance -ClassName $Class -Namespace $Namespace -ErrorAction Stop } } catch { if ($Filter) { return Get-WmiObject -Class $Class -Namespace $Namespace -Filter $Filter -ErrorAction SilentlyContinue } else { return Get-WmiObject -Class $Class -Namespace $Namespace -ErrorAction SilentlyContinue } } }
+
+function Get-WmiCim([string]$Class, [string]$Namespace = "Root\CIMv2", [string]$Filter = "") {
+    try {
+        if ($Filter) { return Get-CimInstance -ClassName $Class -Namespace $Namespace -Filter $Filter -ErrorAction Stop }
+        else { return Get-CimInstance -ClassName $Class -Namespace $Namespace -ErrorAction Stop }
+    } catch {
+        if ($Filter) { return Get-WmiObject -Class $Class -Namespace $Namespace -Filter $Filter -ErrorAction SilentlyContinue }
+        else { return Get-WmiObject -Class $Class -Namespace $Namespace -ErrorAction SilentlyContinue }
+    }
+}
+
 function Test-Internet { if (Test-Connection 8.8.8.8 -Count 1 -Quiet -ErrorAction SilentlyContinue) { return $true }; return $false }
 
+function Get-WingetPath {
+    $cmd = Get-Command "winget.exe" -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    
+    $userApps = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+    if (Test-Path $userApps) { return $userApps }
+    
+    $winApps = Get-ChildItem -Path "C:\Program Files\WindowsApps" -Filter "winget.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($winApps) { return $winApps.FullName }
+    
+    $profileWinget = Get-ChildItem -Path "C:\Users" -Filter "winget.exe" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*WindowsApps\winget.exe*" } | Select-Object -First 1
+    if ($profileWinget) { return $profileWinget.FullName }
+    
+    return $null
+}
+
 # --- 4. CARGA DE BASE DE DATOS (JSON) ---
-$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/refs/heads/main/Toolbox/menu.json"
+$jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/menu.json"
 
 $jsonPath = ""
 if (-not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Definition)) {
@@ -143,7 +184,7 @@ if ($hasValidJsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Cargando motor v3.1.0 desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor v3.2.0 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
@@ -163,19 +204,25 @@ $Accion_Limpieza = {
         $p = @("C:\Windows\Temp\*", "$env:TEMP\*", "C:\Windows\Prefetch\*")
         foreach ($i in $p) { Remove-Item $i -Recurse -Force -ErrorAction SilentlyContinue }
         Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+        Write-AuditLog "Accion_Limpieza" "OK"
     } else {
         Remove-Item "/tmp/*" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item "$env:HOME/.cache/*" -Recurse -Force -ErrorAction SilentlyContinue
+        Write-AuditLog "Accion_Limpieza" "OK"
     }
 }
 
 $Accion_Reparacion = {
     if (Test-Internet) {
-        Write-Centered "SFC & DISM..." "Yellow"
+        Write-Centered "Ejecutando SFC & DISM..." "Yellow"
         if ($IsWindows) {
             dism /online /cleanup-image /restorehealth
             sfc /scannow
+            Write-AuditLog "Accion_Reparacion" "OK"
         }
+    } else {
+        Write-Centered "[!] No hay conexion a internet para reparar via DISM. Ejecutando SFC..." "Yellow"
+        if ($IsWindows) { sfc /scannow; Write-AuditLog "Accion_Reparacion" "OK" "Solo SFC" }
     }
 }
 
@@ -183,39 +230,167 @@ $Accion_Reparacion = {
 $Actions = @{
     # DIAGNOSTICO
     "cmd_diag_sysinfo" = {
-        Write-Centered "--- INFO ---" "Cyan"; Write-Host "`n"
+        Write-Centered "--- INFO DE SISTEMA ---" "Cyan"; Write-Host "`n"
         if ($IsWindows) {
-            $sysInfo = Get-WmiCim "Win32_ComputerSystem"; $cpu = (Get-WmiCim "Win32_Processor").Name
-            $os = Get-WmiCim "Win32_OperatingSystem"; try { $bt = $os.LastBootUpTime; if ($bt.GetType().Name -eq "String") { $bt = $os.ConvertToDateTime($bt) }; $ts = New-TimeSpan -Start $bt -End (Get-Date); $uptime = "$($ts.Days) D, $($ts.Hours) H" } catch { $uptime = "?" }
-            $diskC = Get-WmiCim "Win32_LogicalDisk" -Filter "DeviceID='C:'"; if ($diskC) { $free = [math]::Round($diskC.FreeSpace / 1GB, 1); $total = [math]::Round($diskC.Size / 1GB, 1) }
+            $sysInfo = Get-WmiCim "Win32_ComputerSystem" | Select-Object -First 1
+            $cpus = Get-WmiCim "Win32_Processor"
+            $cpuName = if ($cpus) { ($cpus | Select-Object -First 1).Name.Trim() } else { "Desconocido" }
+            
+            $os = Get-WmiCim "Win32_OperatingSystem" | Select-Object -First 1
+            $uptime = "?"
+            try {
+                $bt = $os.LastBootUpTime
+                if ($bt) {
+                    if ($bt -isnot [DateTime]) {
+                        $bt = [System.Management.ManagementDateTimeConverter]::ToDateTime($bt.ToString())
+                    }
+                    $ts = New-TimeSpan -Start $bt -End (Get-Date)
+                    $uptime = "$($ts.Days)d $($ts.Hours)h $($ts.Minutes)m"
+                }
+            } catch { $uptime = "?" }
+            
+            $diskC = Get-WmiCim "Win32_LogicalDisk" -Filter "DeviceID='C:'" | Select-Object -First 1
+            $free = "?"; $total = "?"
+            if ($diskC -and $diskC.Size -gt 0) {
+                $free = [math]::Round($diskC.FreeSpace / 1GB, 1)
+                $total = [math]::Round($diskC.Size / 1GB, 1)
+            }
+            
             Write-Centered "PC: $($sysInfo.Manufacturer) $($sysInfo.Model)" "Yellow"
-            Write-Centered "CPU: $cpu" "White"; Write-Centered "Disk C: $free GB / $total GB" "White"; Write-Centered "Uptime: $uptime" "Green"
+            Write-Centered "CPU: $cpuName" "White"
+            Write-Centered "Disco C: $free GB libre de $total GB" "White"
+            Write-Centered "Uptime: $uptime" "Green"
+            Write-AuditLog "cmd_diag_sysinfo" "OK" "CPU: $cpuName | Uptime: $uptime"
         } elseif ($IsLinux) {
             $pc = hostname; $cpu = (lscpu | grep "Model name:" | sed 's/Model name: *//').Trim()
             $disk = df -h / | tail -n 1 | awk '{print $4 " / " $2}'
             $uptime = uptime -p
             Write-Centered "PC: $pc" "Yellow"; Write-Centered "CPU: $cpu" "White"; Write-Centered "Disk /: $disk" "White"; Write-Centered "Uptime: $uptime" "Green"
+            Write-AuditLog "cmd_diag_sysinfo" "OK"
         } elseif ($IsMacOS) {
             $pc = scutil --get ComputerName; $cpu = sysctl -n machdep.cpu.brand_string
             $disk = df -h / | tail -n 1 | awk '{print $4 " / " $2}'
             $uptime = uptime | awk -F'( |,|:)+' '{print $6 " H, " $7 " M"}'
             Write-Centered "PC: $pc" "Yellow"; Write-Centered "CPU: $cpu" "White"; Write-Centered "Disk /: $disk" "White"; Write-Centered "Uptime: $uptime" "Green"
+            Write-AuditLog "cmd_diag_sysinfo" "OK"
         }
     }
-    "cmd_diag_lic" = { cscript //nologo c:\windows\system32\slmgr.vbs /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" } }
-    "cmd_diag_bsod" = { Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Message | Format-List }
-    "cmd_diag_disk" = { if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) { Get-PhysicalDisk | Select-Object MediaType, Model, HealthStatus | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Centered $_.Trim() "White" } } }
-    "cmd_diag_batt" = { powercfg /batteryreport /output "$PublicDesktop\BatteryReport.html" | Out-Null; if ([string]::IsNullOrWhiteSpace($PublicDesktop) -eq $false -and (Test-Path "$PublicDesktop\BatteryReport.html")) { Invoke-Item "$PublicDesktop\BatteryReport.html"; Write-Centered "OK" "Green" } }
-    "cmd_diag_inv" = { "Inventario" | Out-File "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt" -Encoding UTF8; Write-Centered "OK" "Green" }
-    "cmd_diag_logs" = { if ([string]::IsNullOrWhiteSpace($logPath) -eq $false -and (Test-Path $logPath)) { Get-Content $logPath -Tail 15 | ForEach-Object { Write-Centered $_ "White" } } }
+    "cmd_diag_lic" = {
+        $slmgrPath = "$env:SystemRoot\System32\slmgr.vbs"
+        if (Test-Path "$env:SystemRoot\SysNative\slmgr.vbs") { $slmgrPath = "$env:SystemRoot\SysNative\slmgr.vbs" }
+        try {
+            cscript //nologo $slmgrPath /xpr | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }
+            Write-AuditLog "cmd_diag_lic" "OK"
+        } catch {
+            Write-Centered "[!] Error consultando estado de licencia." "Red"
+            Write-AuditLog "cmd_diag_lic" "ERROR" $_.Exception.Message
+        }
+    }
+    "cmd_diag_bsod" = {
+        try {
+            $events = Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue
+            if ($events) { $events | Select-Object TimeCreated, Message | Format-List }
+            else { Write-Centered "No se registraron eventos recientes de BSOD o errores criticos." "Green" }
+            Write-AuditLog "cmd_diag_bsod" "OK"
+        } catch { Write-Centered "Error consultando registro de eventos BSOD." "Red" }
+    }
+    "cmd_diag_disk" = {
+        if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) {
+            Get-PhysicalDisk | Select-Object MediaType, Model, HealthStatus | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Centered $_.Trim() "White" }
+            Write-AuditLog "cmd_diag_disk" "OK"
+        } else {
+            Write-Centered "Get-PhysicalDisk no disponible en este sistema." "Yellow"
+        }
+    }
+    "cmd_diag_batt" = {
+        $batt = Get-WmiCim "Win32_Battery" | Select-Object -First 1
+        if (-not $batt) {
+            Write-Centered "[INFO] Este equipo no cuenta con bateria (Es una PC de escritorio o VM)." "Yellow"
+            Write-AuditLog "cmd_diag_batt" "OK" "Sin Bateria (Desktop/VM)"
+            return
+        }
+        $reportPath = "$PublicDesktop\BatteryReport.html"
+        powercfg /batteryreport /output "$reportPath" | Out-Null
+        if (Test-Path $reportPath) {
+            Invoke-Item "$reportPath"
+            Write-Centered "[OK] Reporte generado y abierto en el Escritorio Publico." "Green"
+            Write-AuditLog "cmd_diag_batt" "OK" "Reporte Generado"
+        } else {
+            Write-Centered "[!] No se pudo generar el reporte de bateria." "Red"
+            Write-AuditLog "cmd_diag_batt" "ERROR"
+        }
+    }
+    "cmd_diag_inv" = {
+        $invPath = "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt"
+        "Inventario Hardware y Sistema - $env:COMPUTERNAME" | Out-File $invPath -Encoding UTF8
+        "Fecha: $(Get-Date)" | Out-File $invPath -Encoding UTF8 -Append
+        Get-WmiCim "Win32_ComputerSystem" | Out-String | Out-File $invPath -Encoding UTF8 -Append
+        Write-Centered "[OK] Inventario exportado a $invPath" "Green"
+        Write-AuditLog "cmd_diag_inv" "OK"
+    }
+    "cmd_diag_logs" = {
+        if (Test-Path $logPath) {
+            Write-Centered "--- HISTORIAL DE AUDITORIA LOCAL ($logPath) ---" "Cyan"; Write-Host "`n"
+            Get-Content $logPath -Tail 20 -Encoding UTF8 | ForEach-Object { Write-Centered $_ "White" }
+        } else {
+            Write-Centered "No hay registros de auditoria aun en $logPath" "Yellow"
+        }
+        Write-AuditLog "cmd_diag_logs" "OK"
+    }
 
     # REPARACION
-    "cmd_rep_sfc" = { &$Accion_Reparacion; Play-FinishBeep }
-    "cmd_rep_chkdsk" = { try { cmd.exe /c "echo S | chkdsk C: /f" } catch { Write-Centered "Error ejecutando CHKDSK" "Red" }; Write-Centered "OK" "Green" }
-    "cmd_rep_restore" = { Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Manual" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
-    "cmd_rep_icons" = { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue; Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue; Start-Process explorer; Write-Centered "OK" "Green" }
-    "cmd_rep_time" = { Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" } }
-    "cmd_rep_wu" = { Stop-Service wuauserv, cryptSvc, bits -Force -ErrorAction SilentlyContinue; Remove-Item "$env:windir\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue; Start-Service wuauserv, cryptSvc, bits -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
+    "cmd_rep_sfc" = { &$Accion_Reparacion; Play-FinishBeep; Write-AuditLog "cmd_rep_sfc" "OK" }
+    "cmd_rep_chkdsk" = {
+        try {
+            cmd.exe /c "echo S | chkdsk C: /f"
+            Write-Centered "[OK] CHKDSK programado para el proximo reinicio." "Green"
+            Write-AuditLog "cmd_rep_chkdsk" "OK"
+        } catch {
+            Write-Centered "Error ejecutando CHKDSK" "Red"
+            Write-AuditLog "cmd_rep_chkdsk" "ERROR"
+        }
+    }
+    "cmd_rep_restore" = {
+        Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
+        Checkpoint-Computer -Description "Toolbox_Manual" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
+        Write-Centered "[OK] Punto de restauracion creado." "Green"
+        Write-AuditLog "cmd_rep_restore" "OK"
+    }
+    "cmd_rep_icons" = {
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue
+        Start-Process explorer
+        Write-Centered "[OK] Cache de iconos reconstruida." "Green"
+        Write-AuditLog "cmd_rep_icons" "OK"
+    }
+    "cmd_rep_time" = {
+        Restart-Service w32time -ErrorAction SilentlyContinue
+        w32tm /resync | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }
+        Write-Centered "[OK] Hora sincronizada." "Green"
+        Write-AuditLog "cmd_rep_time" "OK"
+    }
+    "cmd_rep_wu" = {
+        Write-Centered "=== REINICIO COMPLETO DE WINDOWS UPDATE ===" "Yellow"
+        Write-Centered "Deteniendo servicios (wuauserv, cryptSvc, bits, dosvc)..." "Cyan"
+        Stop-Service wuauserv, cryptSvc, bits, dosvc -Force -ErrorAction SilentlyContinue
+
+        Write-Centered "Limpiando SoftwareDistribution y Catroot2..." "Cyan"
+        $sdPath = "$env:windir\SoftwareDistribution"
+        $catPath = "$env:windir\System32\catroot2"
+
+        for ($retry = 1; $retry -le 3; $retry++) {
+            try {
+                if (Test-Path $sdPath) { Remove-Item $sdPath -Recurse -Force -ErrorAction Stop }
+                if (Test-Path $catPath) { Remove-Item $catPath -Recurse -Force -ErrorAction Stop }
+                break
+            } catch { Start-Sleep -Seconds 1 }
+        }
+
+        Write-Centered "Reiniciando servicios..." "Cyan"
+        Start-Service wuauserv, cryptSvc, bits, dosvc -ErrorAction SilentlyContinue
+        Write-Centered "[OK] Servicios y cache de Windows Update restablecidos." "Green"
+        Write-AuditLog "cmd_rep_wu" "OK"
+    }
 
     # REDES Y RDP
     "cmd_net_reset" = {
@@ -226,42 +401,103 @@ $Actions = @{
         $ans = Read-SingleKey
         Write-Host $ans -ForegroundColor Cyan
 
-        if ($ans -eq 'S') {
+        if ($ans -eq 'S' -or $ans -eq 'Y') {
             Write-Centered "Liberando IP y limpiando DNS..." "Yellow"
             ipconfig /release | Out-Null
             ipconfig /flushdns | Out-Null
 
             Write-Centered "Reseteando Winsock y TCP/IP..." "Yellow"
             netsh winsock reset | Out-Null
-            netsh int ip reset c:\resetlog.txt | Out-Null
+            $resetLog = Join-Path $env:TEMP "resetlog.txt"
+            netsh int ip reset $resetLog | Out-Null
 
             Write-Centered "Renovando IP local..." "Yellow"
             ipconfig /renew | Out-Null
 
             Write-Centered "OK! EL STACK ESTA LIMPIO. DEBES REINICIAR LA PC." "Green"
+            Write-AuditLog "cmd_net_reset" "OK"
         } else {
             Write-Centered "Operacion cancelada por el usuario." "White"
+            Write-AuditLog "cmd_net_reset" "CANCELLED"
         }
     }
-    "cmd_net_wifi" = { $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }; foreach ($profile in $profiles) { $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }; Write-Centered "$profile : $pass" "Green" } }
+    "cmd_net_wifi" = {
+        $profiles = netsh wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $_.Matches.Groups[1].Value.Trim() }
+        foreach ($profile in $profiles) {
+            $pass = netsh wlan show profile name="$profile" key=clear | Select-String "Key Content|Contenido de la clave" | ForEach-Object { $_.ToString().Split(':')[1].Trim() }
+            Write-Centered "$profile : $pass" "Green"
+        }
+        Write-AuditLog "cmd_net_wifi" "OK"
+    }
     "cmd_net_ip" = {
         if ($IsWindows) { ipconfig | findstr "IPv4" | ForEach-Object { Write-Centered $_.Trim() "White" } }
         else { ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | ForEach-Object { Write-Centered $_ "White" } }
+        Write-AuditLog "cmd_net_ip" "OK"
     }
-    "cmd_net_gpupdate" = { Write-Centered "GPO Update..." "Yellow"; gpupdate /force | Out-Null }
-    "cmd_net_rdp_on" = { Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0; Enable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null; $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" }).IPAddress | Select-Object -First 1; if ($ip) { $ip | Set-Clipboard; Write-Centered "RDP ON ($ip)." "Green" } }
-    "cmd_net_rdp_off" = { Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1; Disable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null; Write-Centered "RDP OFF." "Red" }
+    "cmd_net_gpupdate" = {
+        Write-Centered "Actualizando Directivas de Grupo (GPO)..." "Yellow"
+        gpupdate /force | Out-Null
+        Write-Centered "[OK] GPO Actualizada." "Green"
+        Write-AuditLog "cmd_net_gpupdate" "OK"
+    }
+    "cmd_net_rdp_on" = {
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null
+        $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" -and $_.IPAddress -notlike "169.254.*" }).IPAddress | Select-Object -First 1
+        if ($ip) { $ip | Set-Clipboard; Write-Centered "[OK] RDP Habilitado ($ip copiado al portapapeles)." "Green" }
+        Write-AuditLog "cmd_net_rdp_on" "OK" "IP: $ip"
+    }
+    "cmd_net_rdp_off" = {
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 1
+        Disable-NetFirewallRule -DisplayGroup "@FirewallAPI.dll,-28752" -ErrorAction SilentlyContinue | Out-Null
+        Write-Centered "[OK] RDP Deshabilitado." "Red"
+        Write-AuditLog "cmd_net_rdp_off" "OK"
+    }
 
     # LIMPIEZA
-    "cmd_clean_temp" = { &$Accion_Limpieza; Write-Centered "OK" "Green" }
-    "cmd_clean_logs" = { wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }; Write-Centered "OK" "Green" }
-    "cmd_clean_winsxs" = { dism /online /cleanup-image /StartComponentCleanup; Write-Centered "OK" "Green" }
+    "cmd_clean_temp" = { &$Accion_Limpieza; Write-Centered "[OK] Limpieza de temporales completada." "Green"; Write-AuditLog "cmd_clean_temp" "OK" }
+    "cmd_clean_logs" = {
+        wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
+        Write-Centered "[OK] Registros de eventos purgados." "Green"
+        Write-AuditLog "cmd_clean_logs" "OK"
+    }
+    "cmd_clean_winsxs" = {
+        Write-Centered "Ejecutando limpieza profunda de WinSxS (Puede demorar)..." "Yellow"
+        dism /online /cleanup-image /StartComponentCleanup
+        Write-Centered "[OK] Limpieza de WinSxS completada." "Green"
+        Write-AuditLog "cmd_clean_winsxs" "OK"
+    }
 
     # SOFTWARE CATALOGO
-    "cmd_soft_scan" = { if (Get-Command Start-MpScan -ErrorAction SilentlyContinue) { Start-MpScan -ScanType QuickScan; Write-Centered "OK" "Green" } }
-    "cmd_soft_startup" = { Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table }
-    "cmd_soft_safe" = { Write-Host "`n"; Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF | 0. Cancelar" "Yellow"; $sm = Read-SingleKey; if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null }; if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null }; Write-Centered "OK" "Green" }
+    "cmd_soft_scan" = {
+        if (Get-Command Start-MpScan -ErrorAction SilentlyContinue) {
+            Write-Centered "Iniciando escaneo rapido con Windows Defender..." "Cyan"
+            Start-MpScan -ScanType QuickScan
+            Write-Centered "[OK] Escaneo rapido completado." "Green"
+            Write-AuditLog "cmd_soft_scan" "OK"
+        }
+    }
+    "cmd_soft_startup" = {
+        Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select-Object * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider | Format-Table
+        Write-AuditLog "cmd_soft_startup" "OK"
+    }
+    "cmd_soft_safe" = {
+        Write-Host "`n"; Write-Centered "1. Safe Mode ON | 2. Safe Mode OFF | 0. Cancelar" "Yellow"
+        $sm = Read-SingleKey
+        if ($sm -eq '1') { bcdedit /set "{current}" safeboot minimal | Out-Null }
+        if ($sm -eq '2') { bcdedit /deletevalue "{current}" safeboot | Out-Null }
+        Write-Centered "[OK] Configuracion de Modo Seguro modificada." "Green"
+        Write-AuditLog "cmd_soft_safe" "OK" "Modo: $sm"
+    }
     "cmd_soft_catalog" = {
+        $wingetBin = Get-WingetPath
+        if (-not $wingetBin) {
+            Write-Centered "[!] ATENCION: Winget (App Installer) no se encuentra instalado en este equipo." "Red"
+            Write-Centered "Puedes instalarlo desde la opcion 'Actualizar Winget y PowerShell (Win 10)' en el menu de Reparacion." "Yellow"
+            Write-AuditLog "cmd_soft_catalog" "ABORT" "Winget No Encontrado"
+            return
+        }
+
         $apps = @(
             @{ID="1"; Name="Chrome"; Winget="Google.Chrome"}, @{ID="2"; Name="Firefox"; Winget="Mozilla.Firefox"},
             @{ID="3"; Name="AnyDesk"; Winget="AnyDesk.AnyDesk"}, @{ID="4"; Name="7-Zip"; Winget="7zip.7zip"},
@@ -272,9 +508,8 @@ $Actions = @{
         )
         $selected = New-Object System.Collections.Generic.List[string]
         while ($true) {
-            [Console]::Clear(); Write-Centered "--- CATALOGO INTERACTIVO ---" "Cyan"; Write-Host "`n"
+            [Console]::Clear(); Write-Centered "--- CATALOGO INTERACTIVO DE SOFTWARE ---" "Cyan"; Write-Host "`n"
 
-            # Split array for two columns
             $half = [math]::Ceiling($apps.Count / 2)
             for ($i = 0; $i -lt $half; $i++) {
                 $app1 = $apps[$i]
@@ -300,111 +535,234 @@ $Actions = @{
 
             Write-Host "`n"
             Write-Centered "E. Esenciales (Chrome, AnyDesk, 7-Zip, VLC, Notepad++)" "Yellow"
-            Write-Centered "I. Instalar | 0. Volver" "Yellow"
+            Write-Centered "I. Instalar seleccionados | 0. Volver" "Yellow"
             Write-Host (" " * 30) "+ Opcion: " -NoNewline
-            $input = Read-SingleKey
-            Write-Host $input -ForegroundColor Cyan
+            $inputKey = Read-SingleKey
+            $inputKey = $inputKey.ToUpper()
+            Write-Host $inputKey -ForegroundColor Cyan
 
-            if ($input -eq '0') { break }
-            if ($input -eq 'E') { $selected.Clear(); $selected.AddRange(@("1","3","4","5","7")) }
-            if ($input -eq 'I' -and $selected.Count -gt 0) {
+            if ($inputKey -eq '0') { break }
+            if ($inputKey -eq 'E') { $selected.Clear(); $selected.AddRange(@("1","3","4","5","7")) }
+            if ($inputKey -eq 'I' -and $selected.Count -gt 0) {
+                Write-Host "`n"
                 foreach ($id in $selected) {
-                    $app = $apps | ?{$_.ID -eq $id}
-                    Write-Centered "Instalando $($app.Name)..." "Cyan"
-                    winget install $app.Winget --disable-interactivity --accept-source-agreements --accept-package-agreements
+                    $app = $apps | Where-Object { $_.ID -eq $id }
+                    if ($app) {
+                        Write-Centered "Instalando $($app.Name) ($($app.Winget))..." "Cyan"
+                        try {
+                            & $wingetBin install $app.Winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+                            Write-Centered "[OK] $($app.Name) procesado." "Green"
+                            Write-AuditLog "cmd_soft_catalog" "OK" "Instalado: $($app.Name)"
+                        } catch {
+                            Write-Centered "[!] Error instalando $($app.Name): $($_.Exception.Message)" "Red"
+                            Write-AuditLog "cmd_soft_catalog" "ERROR" "$($app.Name): $($_.Exception.Message)"
+                        }
+                    }
                 }
+                Write-Centered "`nInstalacion finalizada." "Green"
+                Pause-Menu
                 break
             }
-            if ($selected.Contains($input)) { $selected.Remove($input) | Out-Null }
-            elseif ($apps.ID -contains $input) { $selected.Add($input) }
+            if ($selected.Contains($inputKey)) { $selected.Remove($inputKey) | Out-Null }
+            elseif ($apps.ID -contains $inputKey) { $selected.Add($inputKey) }
         }
     }
 
     # OPTIMIZACIONES
-    "cmd_opt_fastoff" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force; Write-Centered "OK" "Green" }
-    "cmd_opt_faston" = { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force; Write-Centered "OK" "Green" }
-    "cmd_opt_godmode" = { $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"; if ([string]::IsNullOrWhiteSpace($path) -eq $false -and -not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }; Write-Centered "OK" "Green" }
+    "cmd_opt_fastoff" = {
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 0 -Force
+        Write-Centered "[OK] Inicio rapido deshabilitado." "Green"
+        Write-AuditLog "cmd_opt_fastoff" "OK"
+    }
+    "cmd_opt_faston" = {
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "HiberbootEnabled" -Value 1 -Force
+        Write-Centered "[OK] Inicio rapido habilitado." "Green"
+        Write-AuditLog "cmd_opt_faston" "OK"
+    }
+    "cmd_opt_godmode" = {
+        $path = "$PublicDesktop\GodMode.{ED7BA470-8E54-465E-825C-99712043E01C}"
+        if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }
+        Write-Centered "[OK] GodMode creado en Escritorio." "Green"
+        Write-AuditLog "cmd_opt_godmode" "OK"
+    }
     "cmd_opt_bloat" = {
-        Write-Centered "Aniquilando Bloatware..." "Yellow"
-        $bloat = @("*bing*", "*xboxapp*", "*gethelp*", "*solitaire*", "*people*", "*skype*")
+        Write-Centered "=== ANIQUILADOR DE BLOATWARE (WIN 10 / WIN 11) ===" "Yellow"
+        $bloatPatterns = @(
+            "*bing*", "*xboxapp*", "*gethelp*", "*solitaire*", "*people*", "*skype*",
+            "*cortana*", "*3dviewer*", "*mixedreality*", "*zunevideo*", "*zunemusic*",
+            "*yourphone*", "*clipchamp*", "*news*", "*weather*", "*feedbackhub*",
+            "*microsoftstickynotes*", "*todos*", "*getstarted*", "*messaging*"
+        )
         Write-Host " "
         if ($global:lang -eq 'es') {
-            Write-Host " Se buscaran y eliminaran las siguientes aplicaciones:" -ForegroundColor Cyan
+            Write-Host " Se buscaran y eliminaran las siguientes aplicaciones (Usuario actual y Aprovisionados):" -ForegroundColor Cyan
         } else {
-            Write-Host " The following apps will be searched and removed:" -ForegroundColor Cyan
+            Write-Host " The following apps will be removed (Current user and Provisioned packages):" -ForegroundColor Cyan
         }
-        foreach ($b in $bloat) { Write-Host "   - $b" -ForegroundColor Gray }
+        foreach ($b in $bloatPatterns) { Write-Host "   - $b" -ForegroundColor Gray }
 
-        $confirmMsg = if ($global:lang -eq 'es') { "`n Continuar? (s/n)" } else { "`n Continue? (y/n)" }
-        $s = Read-Host $confirmMsg
-        if ($s -eq 's' -or $s -eq 'y') {
+        $confirmMsg = if ($global:lang -eq 'es') { "Deseas continuar? (S/N): " } else { "Continue? (Y/N): " }
+        Write-Host "`n"; Write-Host (" " * 25) "+ $confirmMsg" -ForegroundColor Gray -NoNewline
+        $ans = Read-SingleKey
+        Write-Host $ans -ForegroundColor Cyan
+
+        if ($ans -eq 'S' -or $ans -eq 'Y') {
+            Write-Centered "`nProcesando remocion de Bloatware..." "Yellow"
+            $removedCount = 0
+            
             try {
                 $allApps = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue
                 if ($allApps) {
-                    $appsToRemove = $allApps | Where-Object {
-                        $appName = $_.Name
-                        $match = $false
-                        foreach ($pattern in $bloat) {
-                            if ($appName -like $pattern) { $match = $true; break }
-                        }
-                        $match
-                    }
-                    if ($appsToRemove) {
-                        foreach ($app in $appsToRemove) {
-                            try {
-                                Remove-AppxPackage -Package $app.PackageFullName -AllUsers -ErrorAction Stop
-                            } catch {
-                                # Ignorar errores silenciosamente para que no rompa el script (como PeopleExperienceHost)
+                    foreach ($app in $allApps) {
+                        $appName = $app.Name
+                        foreach ($pattern in $bloatPatterns) {
+                            if ($appName -like $pattern) {
+                                try {
+                                    Write-Host "   [-] Removiendo App: $appName..." -ForegroundColor Gray
+                                    Remove-AppxPackage -Package $app.PackageFullName -ErrorAction Stop
+                                    $removedCount++
+                                } catch { }
+                                break
                             }
                         }
                     }
                 }
-                Write-Centered "OK" "Green"
-            } catch {
-                Write-Centered "OK" "Green"
-            }
+            } catch { }
+
+            try {
+                $provApps = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+                if ($provApps) {
+                    foreach ($papp in $provApps) {
+                        $pName = $papp.DisplayName
+                        foreach ($pattern in $bloatPatterns) {
+                            if ($pName -like $pattern) {
+                                try {
+                                    Write-Host "   [-] Removiendo Aprovisionada: $pName..." -ForegroundColor Gray
+                                    Remove-AppxProvisionedPackage -Online -PackageName $papp.PackageName -ErrorAction Stop | Out-Null
+                                    $removedCount++
+                                } catch { }
+                                break
+                            }
+                        }
+                    }
+                }
+            } catch { }
+
+            Write-Centered "`n[OK] Desinstalacion finalizada ($removedCount elementos procesados)." "Green"
+            Write-AuditLog "cmd_opt_bloat" "OK" "Removidos: $removedCount"
         } else {
-            if ($global:lang -eq 'es') { Write-Centered "Operacion Cancelada" "Gray" } else { Write-Centered "Operation Canceled" "Gray" }
+            if ($global:lang -eq 'es') { Write-Centered "Operacion Cancelada." "Gray" } else { Write-Centered "Operation Canceled." "Gray" }
+            Write-AuditLog "cmd_opt_bloat" "CANCELLED"
         }
     }
     "cmd_opt_visuals" = {
         Write-Centered "Ajustando rendimiento visual..." "Yellow"
-        # 1 = Appearance, 2 = Best Appearance, 3 = Best Performance, 0 = Custom
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 3 -Force -ErrorAction SilentlyContinue
-        # Disable mostly everything except Font Smoothing and Thumbnails
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -Force -ErrorAction SilentlyContinue
         Set-ItemProperty -Path "HKCU:\Control Panel\Desktop\WindowMetrics" -Name "MinAnimate" -Value "0" -Force -ErrorAction SilentlyContinue
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ListviewAlphaSelect" -Value 0 -Force -ErrorAction SilentlyContinue
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ListviewShadow" -Value 0 -Force -ErrorAction SilentlyContinue
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAnimations" -Value 0 -Force -ErrorAction SilentlyContinue
-        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "IconsOnly" -Value 0 -Force -ErrorAction SilentlyContinue # Ensure thumbnails are ON
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "FontSmoothing" -Value "2" -Force -ErrorAction SilentlyContinue # Font smoothing ON
-        Write-Centered "OK (Requiere reiniciar o cerrar sesion)" "Green"
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "IconsOnly" -Value 0 -Force -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "FontSmoothing" -Value "2" -Force -ErrorAction SilentlyContinue
+        Write-Centered "[OK] Rendimiento visual optimizado (Requiere reiniciar o cerrar sesion)." "Green"
+        Write-AuditLog "cmd_opt_visuals" "OK"
     }
-    "cmd_opt_cpl" = { Start-Process control }; "cmd_opt_dev" = { Start-Process devmgmt.msc }; "cmd_opt_net" = { Start-Process ncpa.cpl }; "cmd_opt_app" = { Start-Process appwiz.cpl }
+    "cmd_opt_cpl" = { Start-Process control; Write-AuditLog "cmd_opt_cpl" "OK" }
+    "cmd_opt_dev" = { Start-Process devmgmt.msc; Write-AuditLog "cmd_opt_dev" "OK" }
+    "cmd_opt_net" = { Start-Process ncpa.cpl; Write-AuditLog "cmd_opt_net" "OK" }
+    "cmd_opt_app" = { Start-Process appwiz.cpl; Write-AuditLog "cmd_opt_app" "OK" }
     "cmd_opt_rename" = {
         $n = Read-Host " Nuevo Hostname"
-        if($n){
+        if ($n) {
             if ($IsWindows) { Rename-Computer -NewName $n -ErrorAction SilentlyContinue }
             elseif ($IsLinux) { hostnamectl set-hostname $n }
             elseif ($IsMacOS) { scutil --set ComputerName $n; scutil --set LocalHostName $n; scutil --set HostName $n }
-            Write-Centered "PC -> $n (Reiniciar)." "Yellow"
+            Write-Centered "[OK] PC renombrada a $n (Requiere reiniciar)." "Yellow"
+            Write-AuditLog "cmd_opt_rename" "OK" "NewName: $n"
         }
     }
 
     # IMPRESORAS
-    "cmd_rep_spool" = { Stop-Service Spooler -Force -ErrorAction SilentlyContinue; Remove-Item "$env:windir\System32\spool\PRINTERS\*.*" -Force -Recurse -ErrorAction SilentlyContinue; Start-Service Spooler -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" }
-    "cmd_print_folder" = { $p = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"; if ([string]::IsNullOrWhiteSpace($p) -eq $false -and -not (Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }; Write-Centered "OK" "Green" }
-    "cmd_print_del" = { $printers = Get-Printer; $i=1; foreach($p in $printers){ Write-Host "  $i. $($p.Name)" -ForegroundColor White; $i++ }; $s = Read-Host "`n Borrar nro (0 cancelar)"; if([int]$s -gt 0 -and [int]$s -le $printers.Count){ Remove-Printer -Name $printers[[int]$s-1].Name -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" } }
-    "cmd_print_driver" = { $drivers = Get-PrinterDriver; $i=1; foreach($d in $drivers){ Write-Host "  $i. $($d.Name)" -ForegroundColor White; $i++ }; $s = Read-Host "`n Borrar nro (0 cancelar)"; if([int]$s -gt 0 -and [int]$s -le $drivers.Count){ Remove-PrinterDriver -Name $drivers[[int]$s-1].Name -ErrorAction SilentlyContinue; Write-Centered "OK" "Green" } }
-    "cmd_print_fw" = { Enable-NetFirewallRule -Name "FPS-ICMP4-ERQ-In" -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName "Toolbox_PrintTCP" -Direction Inbound -Protocol TCP -LocalPort 139,445 -Action Allow -ErrorAction SilentlyContinue | Out-Null; Write-Centered "OK" "Green" }
+    "cmd_rep_spool" = {
+        Stop-Service Spooler -Force -ErrorAction SilentlyContinue
+        Remove-Item "$env:windir\System32\spool\PRINTERS\*" -Force -Recurse -ErrorAction SilentlyContinue
+        Start-Service Spooler -ErrorAction SilentlyContinue
+        Write-Centered "[OK] Cola de impresion destrabada." "Green"
+        Write-AuditLog "cmd_rep_spool" "OK"
+    }
+    "cmd_print_folder" = {
+        $p = "$PublicDesktop\Printers.{2227a280-3aea-1069-a2de-08002b30309d}"
+        if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }
+        Write-Centered "[OK] Carpeta Maestra de Impresoras creada." "Green"
+        Write-AuditLog "cmd_print_folder" "OK"
+    }
+    "cmd_print_del" = {
+        $printers = @(Get-Printer -ErrorAction SilentlyContinue)
+        if ($printers.Count -eq 0) { Write-Centered "No se encontraron impresoras en el sistema." "Yellow"; return }
+        $i=1; foreach($p in $printers){ Write-Host "  $i. $($p.Name)" -ForegroundColor White; $i++ }
+        $s = Read-Host "`n Borrar nro (0 cancelar)"
+        if ($s -match '^\d+$') {
+            $idx = [int]$s
+            if ($idx -gt 0 -and $idx -le $printers.Count) {
+                $targetP = $printers[$idx - 1]
+                Remove-Printer -Name $targetP.Name -ErrorAction SilentlyContinue
+                Write-Centered "[OK] Impresora $($targetP.Name) eliminada." "Green"
+                Write-AuditLog "cmd_print_del" "OK" $targetP.Name
+            }
+        }
+    }
+    "cmd_print_driver" = {
+        $drivers = @(Get-PrinterDriver -ErrorAction SilentlyContinue)
+        if ($drivers.Count -eq 0) { Write-Centered "No se encontraron drivers de impresoras." "Yellow"; return }
+        $i=1; foreach($d in $drivers){ Write-Host "  $i. $($d.Name)" -ForegroundColor White; $i++ }
+        $s = Read-Host "`n Borrar nro (0 cancelar)"
+        if ($s -match '^\d+$') {
+            $idx = [int]$s
+            if ($idx -gt 0 -and $idx -le $drivers.Count) {
+                $targetD = $drivers[$idx - 1]
+                Remove-PrinterDriver -Name $targetD.Name -ErrorAction SilentlyContinue
+                Write-Centered "[OK] Driver $($targetD.Name) eliminado." "Green"
+                Write-AuditLog "cmd_print_driver" "OK" $targetD.Name
+            }
+        }
+    }
+    "cmd_print_fw" = {
+        Enable-NetFirewallRule -Name "FPS-ICMP4-ERQ-In" -ErrorAction SilentlyContinue
+        New-NetFirewallRule -DisplayName "Toolbox_PrintTCP" -Direction Inbound -Protocol TCP -LocalPort 139,445 -Action Allow -ErrorAction SilentlyContinue | Out-Null
+        Write-Centered "[OK] Reglas de firewall para comparticion de impresoras aplicadas." "Green"
+        Write-AuditLog "cmd_print_fw" "OK"
+    }
 
     # IDENTIDAD
-    "cmd_user_admin_on" = { net user administrator /active:yes; Write-Centered "ADMIN ON." "Green" }
-    "cmd_user_admin_off" = { net user administrator /active:no; Write-Centered "ADMIN OFF." "White" }
-    "cmd_user_pass" = { Get-LocalUser | Select-Object Name; $u = Read-Host "Usuario"; if($u){ $p = Read-Host "Clave"; net user "$u" "$p" | Out-Null; Write-Centered "OK" "Green" } }
+    "cmd_user_admin_on" = { net user administrator /active:yes; Write-Centered "[OK] ADMIN ON." "Green"; Write-AuditLog "cmd_user_admin_on" "OK" }
+    "cmd_user_admin_off" = { net user administrator /active:no; Write-Centered "[OK] ADMIN OFF." "White"; Write-AuditLog "cmd_user_admin_off" "OK" }
+    "cmd_user_pass" = {
+        Get-LocalUser | Select-Object Name, Enabled | Format-Table -AutoSize | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }
+        $u = Read-Host "Usuario"
+        if ($u) {
+            $p = Read-Host "Nueva clave"
+            if ($p) {
+                try {
+                    $secPass = ConvertTo-SecureString $p -AsPlainText -Force
+                    Set-LocalUser -Name $u -Password $secPass -ErrorAction Stop
+                    Write-Centered "[OK] Contraseña para $u actualizada." "Green"
+                    Write-AuditLog "cmd_user_pass" "OK" "Usuario: $u"
+                } catch {
+                    try {
+                        net user "$u" "$p" | Out-Null
+                        Write-Centered "[OK] Contraseña para $u actualizada (net user)." "Green"
+                        Write-AuditLog "cmd_user_pass" "OK" "Usuario: $u (net user)"
+                    } catch {
+                        Write-Centered "[!] Error al cambiar la contraseña." "Red"
+                        Write-AuditLog "cmd_user_pass" "ERROR" "Usuario: $u"
+                    }
+                }
+            }
+        }
+    }
 
-    # MODO AUTOMATICO (8 PASOS - v2.3.1)
+    # MODO AUTOMATICO (8 PASOS - v3.2.0)
     "cmd_auto_run" = {
         Write-Centered ">> MANTENIMIENTO AUTOMATICO EN PROGRESO <<" "Green"; Write-Host "`n"
         Write-Centered "[ 1/8 ] Punto de Restauracion..." "Yellow"; Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
@@ -416,12 +774,14 @@ $Actions = @{
         Write-Centered "[ 7/8 ] Forzando Politicas (GPO)..." "Yellow"; gpupdate /force | Out-Null
         Write-Centered "[ 8/8 ] Sincronizando Hora..." "Yellow"; Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-Null
         Play-FinishBeep; Write-Centered "MANTENIMIENTO FINALIZADO" "Green"
+        Write-AuditLog "cmd_auto_run" "OK"
     }
     "cmd_auto_run_exit" = { & $Actions["cmd_auto_run"]; [Console]::Clear(); exit }
 
     "action_credits" = {
         Write-Centered "=== CREDITOS ===" "Cyan"; Write-Host "`n"; Write-Centered "Toolbox Tecnico Pro - By Viktor" "White"
         Write-Centered "Vik Tools" "Magenta"; Write-Host "`n"; Write-Centered "GitHub: github.com/xvacorx" "Cyan"; Start-Process "https://github.com/xvacorx"
+        Write-AuditLog "action_credits" "OK"
     }
 
     # UTILIDADES EXTRAS (Modules)
@@ -431,14 +791,14 @@ $Actions = @{
         Write-Centered "1. Activar | 2. Desactivar | 0. Volver" "White"
         $ans = Read-SingleKey
         if ($ans -eq '1') {
-            # Start background powershell job so it stays running. Usamos Base64 para evitar errores de parseo con comillas en iex.
-            $psCmdB64 = "JABjAG8AZABlACAAPQAgACcAWwBEAGwAbABJAG0AcABvAHIAdAAoACIAawBlAHIAbgBlAGwAMwAyAC4AZABsAGwAIgApAF0AIABwAHUAYgBsAGkAYwAgAHMAdABhAHQAaQBjACAAZQB4AHQAZQByAG4AIAB1AGkAbgB0ACAAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAdQBpAG4AdAAgAGUAcwBGAGwAYQBnAHMAKQA7ACcAOwAgACQAdAB5AHAAZQAgAD0AIABBAGQAZAAtAFQAeQBwAGUAIAAtAE0AZQBtAGIAZQByAEQAZQBmAGkAbgBpAHQAaQBvAG4AIAAkAGMAbwBkAGUAIAAtAE4AYQBtAGUAIAAnAFcAaQBuADMAMgAnACAALQBOAGEAbQBlAHMAcABhAGMAZQAgACcAUwB5AHMAdABlAG0AJwAgAC0AUABhAHMAcwBUAGgAcgB1ADsAIAB3AGgAaQBsAGUAIAAoACQAdAByAHUAZQApACAAewAgACQAdAB5AHAAZQA6ADoAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAMAB4ADgAMAAwADAAMAAwADAAMwApADsAIABTAHQAYQByAHQALQBTAGwAZQBlAHAAIAAtAFMAZQBjAG8AbgBkAHMAIAA2ADAAIAB9AA=="
+            $psCmdB64 = "JABjAG8AZABlACAAPQAgACcAWwBEAGwAbABJAG0AcABvAHIAdAAoACIAawBlAHIAbgBlAGwAMwAyAC4AZABsAGwAIgApAF0AIABwAHUAYgBsAGkAYwAgAHMAdABhAHQAaQBjACAAZQB4AHQAZQByAG4AIAB1AGkAbgB0ACAAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAdQBpAG4AdAAgAGUAcwBGAGwAYQBnAHMAKQA7ACcAOwAgACQAdAB5AHAAZQAgAD0AIABBAGQAZAAtAFQAeQBwAGUAIAAtAE0AZQBtAGIAZQByAEQAZQBmAGkAbgBpAHQAaQBvAG4AIAAkAGMAbwBkAGUAIAAtAE4AYQBtAGUAIAAnAFcAaQBuADMAMgAnACAALQBOAGEAbQBlAHMAcABhAGMAZQAgACcAUwB5AHMAdABlAG0AJwAgAC0AUABhAHMAcwBUAGgAcgB1ADsAIAB3AGgAaQBsAGUAIAAoACQAdAByAHUAZQApACAAewAgACQAdAB5AHAAZQA6ADoAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAMAB4ADgAMAAwADAAMAAwADAAMwApADsAIABTAHQAYQByAHQALQBTAGwAZQBlAHAAIAAtAFMAZQBjAG8AbgBkAHMAIAA6ADAAIAB9AA=="
             Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $psCmdB64
-            Write-Centered "Anti Sleep Activado (Bloqueando suspension de sistema y pantalla)." "Green"
+            Write-Centered "[OK] Anti Sleep Activado (Bloqueando suspension de sistema y pantalla)." "Green"
+            Write-AuditLog "cmd_util_antisleep" "OK" "ON"
         } elseif ($ans -eq '2') {
-            # Kill instances running the specific logic
             Get-WmiObject Win32_Process -Filter "Name='powershell.exe' AND CommandLine LIKE '%SetThreadExecutionState%'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-            Write-Centered "Anti Sleep Desactivado." "Green"
+            Write-Centered "[OK] Anti Sleep Desactivado." "Green"
+            Write-AuditLog "cmd_util_antisleep" "OK" "OFF"
         }
     }
     "cmd_util_ping" = {
@@ -449,7 +809,7 @@ $Actions = @{
         if ($target) {
             if ($target.ToLower() -eq 'bulk') {
                 $file = "$PublicDesktop\ips.txt"
-                if ([string]::IsNullOrWhiteSpace($file) -eq $false -and (Test-Path $file)) {
+                if (Test-Path $file) {
                     Write-Centered "Procesando $file ..." "Yellow"
                     Get-Content $file | ForEach-Object {
                         $ip = $_.Trim()
@@ -480,6 +840,7 @@ $Actions = @{
                     Write-Centered "$target [FAILED] - Sin Respuesta" "Red"
                 }
             }
+            Write-AuditLog "cmd_util_ping" "OK" "Target: $target"
         }
     }
     "cmd_util_hash" = {
@@ -491,10 +852,11 @@ $Actions = @{
             $path = Read-Host "Ruta del archivo (Arrastra el archivo aqui)"
             if ($path) {
                 $path = $path.Trim('"')
-                if ([string]::IsNullOrWhiteSpace($path) -eq $false -and (Test-Path $path -PathType Leaf)) {
+                if (Test-Path $path -PathType Leaf) {
                     Write-Centered "MD5:" "Yellow"; (Get-FileHash $path -Algorithm MD5).Hash | Write-Centered -color "White"
                     Write-Centered "SHA1:" "Yellow"; (Get-FileHash $path -Algorithm SHA1).Hash | Write-Centered -color "White"
                     Write-Centered "SHA256:" "Yellow"; (Get-FileHash $path -Algorithm SHA256).Hash | Write-Centered -color "White"
+                    Write-AuditLog "cmd_util_hash" "OK" "File Hash"
                 } else { Write-Centered "Archivo no encontrado." "Red" }
             }
         } elseif ($ans -eq '2') {
@@ -506,9 +868,11 @@ $Actions = @{
                 "Device Serial Number,Windows Product ID,Hardware Hash" | Out-File -FilePath $csvPath -Encoding utf8
                 "$serial,$product,$($devDetail.DeviceHardwareData)" | Out-File -FilePath $csvPath -Encoding utf8 -Append
                 Write-Centered "[OK] CSV generado exitosamente en el Escritorio." "Green"
+                Write-AuditLog "cmd_util_hash" "OK" "Hardware Hash CSV"
             } catch {
                 Write-Centered "[!] Error al extraer Hardware Hash. Requiere permisos de administrador." "Red"
                 Write-Centered $_.Exception.Message "White" "Red"
+                Write-AuditLog "cmd_util_hash" "ERROR" $_.Exception.Message
             }
         }
     }
@@ -519,7 +883,7 @@ $Actions = @{
         $path = Read-Host "Arrastra un archivo aqui para iniciar con Windows"
         if ($path) {
             $path = $path.Trim('"')
-            if ([string]::IsNullOrWhiteSpace($path) -eq $false -and (Test-Path $path)) {
+            if (Test-Path $path) {
                 try {
                     $wshell = New-Object -ComObject WScript.Shell
                     $startupFolder = [Environment]::GetFolderPath('Startup')
@@ -529,6 +893,7 @@ $Actions = @{
                     $shortcut.Save()
                     if (Test-Path $shortcutPath) {
                         Write-Centered "[OK] Acceso directo creado en Startup." "Green"
+                        Write-AuditLog "cmd_util_startup" "OK" $path
                     } else {
                         Write-Centered "[!] Error al crear el acceso directo." "Red"
                     }
@@ -550,43 +915,69 @@ $Actions = @{
             if ($mins -match '^\d+$') {
                 $secs = [int]$mins * 60
                 shutdown /s /f /t $secs
-                Write-Centered "Apagado programado en $mins minutos." "Green"
+                Write-Centered "[OK] Apagado programado en $mins minutos." "Green"
+                Write-AuditLog "cmd_util_shutdown" "OK" "En $mins min"
             }
         } elseif ($ans -eq '2') {
             shutdown /a | Out-Null
-            Write-Centered "Apagado programado cancelado." "Yellow"
+            Write-Centered "[OK] Apagado programado cancelado." "Yellow"
+            Write-AuditLog "cmd_util_shutdown" "OK" "Cancelado"
         }
     }
     "cmd_rep_win10_update" = {
-        Write-Centered "=== ACTUALIZAR WINGET Y POWERSHELL (WIN 10) ===" "Cyan"
+        Write-Centered "=== ACTUALIZAR WINGET Y POWERSHELL (WIN 10/11) ===" "Cyan"
         Write-Host "`n"
-        Write-Centered "Este proceso descargara e instalara los paquetes AppInstaller (Winget) y PowerShell Core (pwsh)." "Yellow"
-        Write-Centered "Puede demorar varios minutos dependiendo de la conexion a internet." "White"
+        Write-Centered "Este proceso descargara e instalara/actualizara Winget (AppInstaller) y PowerShell Core (pwsh)." "Yellow"
+        Write-Centered "Recomendado para solucionar faltas de librerias en Windows 10." "White"
         Write-Host "`n"; Write-Host (" " * 30) "+ Deseas continuar? (S/N): " -ForegroundColor Gray -NoNewline
         $ans = Read-SingleKey
         Write-Host $ans -ForegroundColor Cyan
 
         if ($ans -eq 'S' -or $ans -eq 'Y') {
-            Write-Centered "Descargando e Instalando AppInstaller (Winget)..." "Cyan"
+            Write-Centered "1/2 Descargando e Instalando AppInstaller (Winget)..." "Cyan"
             try {
-                $urlWinget = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+                $wingetUrl = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
                 $wingetPath = "$env:TEMP\winget.msixbundle"
-                Invoke-WebRequest -Uri $urlWinget -OutFile $wingetPath -UseBasicParsing -ErrorAction Stop
-                Add-AppxPackage -Path $wingetPath -ErrorAction Stop
-                Write-Centered "[OK] Winget Instalado/Actualizado." "Green"
+                Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetPath -UseBasicParsing -ErrorAction Stop
+                
+                Add-AppxPackage -Path $wingetPath -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop
+                Write-Centered "[OK] Winget Instalado/Actualizado correctamente." "Green"
+                Write-AuditLog "cmd_rep_win10_update" "OK" "Winget Actualizado"
             } catch {
-                Write-Centered "[FALLO] Error actualizando Winget: $($_.Exception.Message)" "Red"
+                Write-Centered "[WARN] Add-AppxPackage directo fallo: $($_.Exception.Message)" "Yellow"
+                Write-Centered "Intentando instalacion asistida/fallback para Windows 10..." "White"
+                try {
+                    Start-Process "ms-windows-store://pdp/?productid=9NBLGGH4NNS1" -ErrorAction SilentlyContinue
+                    Write-Centered "[INFO] Abriendo Microsoft Store para actualizar App Installer." "Cyan"
+                } catch { }
+                Write-AuditLog "cmd_rep_win10_update" "WARN" "Winget Fallback"
             }
 
-            Write-Centered "Descargando e Instalando PowerShell Core..." "Cyan"
+            Write-Centered "`n2/2 Descargando e Instalando PowerShell Core (pwsh)..." "Cyan"
             try {
-                $urlPwsh = "https://github.com/PowerShell/PowerShell/releases/latest/download/PowerShell-7.4.3-win-x64.msi"
+                $pwshMsiUrl = "https://github.com/PowerShell/PowerShell/releases/latest/download/PowerShell-7.4.6-win-x64.msi"
+                try {
+                    $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -UseBasicParsing -ErrorAction Stop
+                    $asset = $releaseInfo.assets | Where-Object { $_.name -like "PowerShell-*-win-x64.msi" } | Select-Object -First 1
+                    if ($asset) { $pwshMsiUrl = $asset.browser_download_url }
+                } catch { }
+
                 $pwshPath = "$env:TEMP\pwsh.msi"
-                Invoke-WebRequest -Uri $urlPwsh -OutFile $pwshPath -UseBasicParsing -ErrorAction Stop
-                Start-Process msiexec.exe -ArgumentList "/i `"$pwshPath`" /quiet" -Wait -ErrorAction Stop
-                Write-Centered "[OK] PowerShell Core Instalado/Actualizado." "Green"
+                Write-Centered "Descargando desde GitHub: $pwshMsiUrl" "Gray"
+                Invoke-WebRequest -Uri $pwshMsiUrl -OutFile $pwshPath -UseBasicParsing -ErrorAction Stop
+                
+                Write-Centered "Ejecutando MSI de PowerShell Core..." "Yellow"
+                $proc = Start-Process msiexec.exe -ArgumentList "/i `"$pwshPath`" /quiet /norestart" -Wait -PassThru -ErrorAction Stop
+                if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
+                    Write-Centered "[OK] PowerShell Core Instalado/Actualizado exitosamente." "Green"
+                    Write-AuditLog "cmd_rep_win10_update" "OK" "PowerShell Core Actualizado"
+                } else {
+                    Write-Centered "[!] MSI finalizo con codigo: $($proc.ExitCode)" "Yellow"
+                    Write-AuditLog "cmd_rep_win10_update" "WARN" "MSI ExitCode $($proc.ExitCode)"
+                }
             } catch {
-                Write-Centered "[FALLO] Error actualizando PowerShell: $($_.Exception.Message)" "Red"
+                Write-Centered "[FALLO] Error actualizando PowerShell Core: $($_.Exception.Message)" "Red"
+                Write-AuditLog "cmd_rep_win10_update" "ERROR" $_.Exception.Message
             }
         }
     }
@@ -606,11 +997,15 @@ $Actions = @{
 
             Write-Centered "Aplicando clave VK7JG-NPHTM-C97JM-9MPGT-3V66T..." "Cyan"
             try {
-                cscript //nologo c:\windows\system32\slmgr.vbs /ipk VK7JG-NPHTM-C97JM-9MPGT-3V66T | Out-Null
+                $slmgrPath = "$env:SystemRoot\System32\slmgr.vbs"
+                if (Test-Path "$env:SystemRoot\SysNative\slmgr.vbs") { $slmgrPath = "$env:SystemRoot\SysNative\slmgr.vbs" }
+                cscript //nologo $slmgrPath /ipk VK7JG-NPHTM-C97JM-9MPGT-3V66T | Out-Null
                 Start-Process -FilePath "changepk.exe" -ArgumentList "/ProductKey VK7JG-NPHTM-C97JM-9MPGT-3V66T" -Wait -NoNewWindow
                 Write-Centered "[OK] Proceso completado. La PC podria reiniciarse automaticamente." "Green"
+                Write-AuditLog "cmd_rep_win_pro" "OK"
             } catch {
                 Write-Centered "[FALLO] Error al aplicar clave: $($_.Exception.Message)" "Red"
+                Write-AuditLog "cmd_rep_win_pro" "ERROR" $_.Exception.Message
             }
 
             Write-Centered "Restaurando adaptadores de red..." "Yellow"
@@ -625,8 +1020,10 @@ $Actions = @{
         try {
             Start-Process powershell.exe -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"irm get.activated.win | iex`""
             Write-Centered "[OK] Script ejecutado en nueva ventana." "Green"
+            Write-AuditLog "cmd_soft_mas" "OK"
         } catch {
             Write-Centered "[FALLO] No se pudo lanzar el script: $($_.Exception.Message)" "Red"
+            Write-AuditLog "cmd_soft_mas" "ERROR" $_.Exception.Message
         }
     }
 }
@@ -643,7 +1040,6 @@ while ($true) {
 
     if ($null -ne $menuData.titulo) { Write-Centered "=== $($menuData.titulo.$l) ===" "Cyan"; Write-Host "`n" }
 
-    # Renderiza la Información extra (Ej: para el Modo Automático)
     if ($null -ne $menuData.info) {
         foreach ($line in $menuData.info) {
             $textInfo = if ($l -eq 'es') { $line.es } else { $line.en }
@@ -652,7 +1048,6 @@ while ($true) {
         Write-Host "`n"
     }
 
-    # Filtrar por sistema operativo
     $currentOS = if ($IsWindows) { "Windows" } elseif ($IsLinux) { "Linux" } elseif ($IsMacOS) { "MacOS" } else { "Unknown" }
     $validOps = @()
     foreach ($op in $menuData.opciones) {
@@ -661,7 +1056,6 @@ while ($true) {
         }
     }
 
-    # Lógica de separación visual (Agrupa los números arriba, letras abajo)
     $mainOps = @()
     $extraOps = @()
     foreach ($op in $validOps) {
@@ -669,14 +1063,12 @@ while ($true) {
         else { $extraOps += $op }
     }
 
-    # Renderiza opciones principales
     foreach ($op in $mainOps) {
         $label = if ($l -eq 'es') { $op.label_es } else { $op.label_en }
         $color = if ($op.color) { $op.color } else { "White" }
         Write-Centered " $($op.tecla). $label " $color
     }
 
-    # Renderiza separador visual y opciones extra
     if ($extraOps.Count -gt 0) {
         Write-Host "`n"
         foreach ($op in $extraOps) {
@@ -689,12 +1081,10 @@ while ($true) {
     Write-Host "`n"; Write-Centered ("-" * 80) "Gray"
     Write-Host (" " * 46) "+ $($db.diccionario.option.$l) " -ForegroundColor Gray -NoNewline
 
-    # Input de 1 sola tecla integrado
     $key = Read-SingleKey
     Write-Host $key -ForegroundColor Cyan
-    Start-Sleep -Milliseconds 150 # Pausa visual para sentir el click
+    Start-Sleep -Milliseconds 150
 
-    # Ruteo Logico
     $selectedOption = $null
     foreach ($op in $validOps) {
         if ($op.tecla.ToUpper() -eq $key) { $selectedOption = $op; break }
@@ -732,6 +1122,7 @@ while ($true) {
                     Write-Host "`n"
                     Write-Centered "[!] SE DETECTO UN ERROR EN LA EJECUCION:" "Red"
                     Write-Centered $_.Exception.Message "White" "Red"
+                    Write-AuditLog $target "CRASH" $_.Exception.Message
                 }
             }
             else { Write-Centered "[!] Comando no encontrado en el motor PS1: $target" "Red" }
