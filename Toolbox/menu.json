@@ -545,9 +545,21 @@
                 },
                 {
                     "tecla": "5",
-                    "label_es": "Renombrar Equipo y Usuario",
-                    "label_en": "Rename Computer and User",
-                    "target": "cmd_opt_rename",
+                    "label_es": "Renombrar Nombre de Equipo (Hostname)",
+                    "label_en": "Rename Computer Name (Hostname)",
+                    "target": "cmd_opt_rename_hostname",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows",
+                        "Linux",
+                        "MacOS"
+                    ]
+                },
+                {
+                    "tecla": "U",
+                    "label_es": "Renombrar Nombre de Usuario",
+                    "label_en": "Rename User Account Name",
+                    "target": "cmd_opt_rename_user",
                     "color": "Yellow",
                     "os": [
                         "Windows",

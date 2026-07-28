@@ -672,16 +672,76 @@ $Actions = @{
     "cmd_opt_dev" = { Start-Process devmgmt.msc; Write-AuditLog "cmd_opt_dev" "OK" }
     "cmd_opt_net" = { Start-Process ncpa.cpl; Write-AuditLog "cmd_opt_net" "OK" }
     "cmd_opt_app" = { Start-Process appwiz.cpl; Write-AuditLog "cmd_opt_app" "OK" }
-    "cmd_opt_rename" = {
-        $n = Read-Host " Nuevo Hostname"
+    "cmd_opt_rename_hostname" = {
+        $promptMsg = if ($global:lang -eq 'es') { " Nuevo Hostname (nombre del equipo)" } else { " New Hostname (computer name)" }
+        $n = Read-Host $promptMsg
         if ($n) {
-            if ($IsWindows) { Rename-Computer -NewName $n -ErrorAction SilentlyContinue }
-            elseif ($IsLinux) { hostnamectl set-hostname $n }
-            elseif ($IsMacOS) { scutil --set ComputerName $n; scutil --set LocalHostName $n; scutil --set HostName $n }
-            Write-Centered "[OK] PC renombrada a $n (Requiere reiniciar)." "Yellow"
-            Write-AuditLog "cmd_opt_rename" "OK" "NewName: $n"
+            if ($IsWindows) {
+                Rename-Computer -NewName $n -Force -ErrorAction SilentlyContinue
+                Write-Centered "[OK] Equipo renombrado a '$n' (Requiere reiniciar)." "Yellow"
+            } elseif ($IsLinux) {
+                hostnamectl set-hostname $n
+                Write-Centered "[OK] Hostname cambiado a '$n'." "Green"
+            } elseif ($IsMacOS) {
+                scutil --set ComputerName $n
+                scutil --set LocalHostName $n
+                scutil --set HostName $n
+                Write-Centered "[OK] Hostname de Mac cambiado a '$n' (Puede requerir reinicio)." "Yellow"
+            }
+            Write-AuditLog "cmd_opt_rename_hostname" "OK" "NewHostname: $n"
+        } else {
+            $cancelMsg = if ($global:lang -eq 'es') { "Operacion cancelada." } else { "Operation cancelled." }
+            Write-Centered $cancelMsg "Gray"
         }
     }
+    "cmd_opt_rename_user" = {
+        if ($IsWindows) {
+            $promptUser = if ($global:lang -eq 'es') { " Nombre de usuario a renombrar" } else { " Username to rename" }
+            $promptNew  = if ($global:lang -eq 'es') { " Nuevo nombre de usuario"        } else { " New username"         }
+            Get-LocalUser | Select-Object Name, Enabled | Format-Table -AutoSize | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }
+            $oldName = Read-Host $promptUser
+            if ($oldName) {
+                $newName = Read-Host $promptNew
+                if ($newName) {
+                    try {
+                        Rename-LocalUser -Name $oldName -NewName $newName -ErrorAction Stop
+                        Write-Centered "[OK] Usuario '$oldName' renombrado a '$newName'." "Green"
+                        Write-AuditLog "cmd_opt_rename_user" "OK" "OldName: $oldName -> NewName: $newName"
+                    } catch {
+                        Write-Centered "[!] Error al renombrar el usuario: $($_.Exception.Message)" "Red"
+                        Write-AuditLog "cmd_opt_rename_user" "ERROR" "OldName: $oldName | $($_.Exception.Message)"
+                    }
+                }
+            }
+        } elseif ($IsLinux) {
+            $promptUser = if ($global:lang -eq 'es') { " Usuario actual a renombrar" } else { " Current username to rename" }
+            $promptNew  = if ($global:lang -eq 'es') { " Nuevo nombre de usuario"    } else { " New username"               }
+            $oldName = Read-Host $promptUser
+            if ($oldName) {
+                $newName = Read-Host $promptNew
+                if ($newName) {
+                    usermod -l $newName $oldName
+                    usermod -d /home/$newName -m $newName
+                    Write-Centered "[OK] Usuario '$oldName' renombrado a '$newName'. Cierra sesion para aplicar." "Yellow"
+                    Write-AuditLog "cmd_opt_rename_user" "OK" "OldName: $oldName -> NewName: $newName"
+                }
+            }
+        } elseif ($IsMacOS) {
+            $promptUser = if ($global:lang -eq 'es') { " Usuario actual (shortname)" } else { " Current username (shortname)" }
+            $promptNew  = if ($global:lang -eq 'es') { " Nuevo nombre de usuario"    } else { " New username"                  }
+            $oldName = Read-Host $promptUser
+            if ($oldName) {
+                $newName = Read-Host $promptNew
+                if ($newName) {
+                    dscl . -change /Users/$oldName RecordName $oldName $newName
+                    dscl . -change /Users/$newName UserShell /bin/bash /bin/bash
+                    Write-Centered "[OK] Usuario '$oldName' renombrado a '$newName'. Reinicia para aplicar." "Yellow"
+                    Write-AuditLog "cmd_opt_rename_user" "OK" "OldName: $oldName -> NewName: $newName"
+                }
+            }
+        }
+    }
+
 
     # IMPRESORAS
     "cmd_rep_spool" = {
