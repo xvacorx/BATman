@@ -3,8 +3,9 @@
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
+$ProgressPreference = 'SilentlyContinue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13 }
-catch { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 }
+catch { [Net.SecurityProtocolType]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 }
 
 if ($null -eq $IsWindows) { $IsWindows = $true; $IsLinux = $false; $IsMacOS = $false }
 
@@ -288,11 +289,18 @@ $Actions = @{
     }
     "cmd_diag_bsod" = {
         try {
-            $events = Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2} -MaxEvents 5 -ErrorAction SilentlyContinue
-            if ($events) { $events | Select-Object TimeCreated, Message | Format-List }
-            else { Write-Centered "No se registraron eventos recientes de BSOD o errores criticos." "Green" }
+            Write-Centered "Consultando eventos recientes de pantallazos azules (BugCheck / Kernel-Power)..." "Cyan"
+            $events = Get-WinEvent -FilterHashtable @{LogName='System'; Id=1001,41} -MaxEvents 5 -ErrorAction SilentlyContinue
+            if ($events) {
+                foreach ($evt in $events) {
+                    Write-Centered "[$($evt.TimeCreated)] ID: $($evt.Id) - $($evt.ProviderName)" "Yellow"
+                    $msgSnippet = if ($evt.Message) { $evt.Message.Substring(0, [math]::Min(120, $evt.Message.Length)) } else { "Sin detalles" }
+                    Write-Centered "$msgSnippet" "White"
+                    Write-Host "`n"
+                }
+            } else { Write-Centered "[OK] No se registraron eventos recientes de BSOD o reinicios inesperados." "Green" }
             Write-AuditLog "cmd_diag_bsod" "OK"
-        } catch { Write-Centered "Error consultando registro de eventos BSOD." "Red" }
+        } catch { Write-Centered "[!] Error consultando registro de eventos BSOD." "Red" }
     }
     "cmd_diag_disk" = {
         if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) {
@@ -371,10 +379,10 @@ $Actions = @{
     }
     "cmd_rep_wu" = {
         Write-Centered "=== REINICIO COMPLETO DE WINDOWS UPDATE ===" "Yellow"
-        Write-Centered "Deteniendo servicios (wuauserv, cryptSvc, bits, dosvc)..." "Cyan"
+        Write-Centered "   [1/4] Deteniendo servicios (wuauserv, cryptSvc, bits, dosvc)..." "Cyan"
         Stop-Service wuauserv, cryptSvc, bits, dosvc -Force -ErrorAction SilentlyContinue
 
-        Write-Centered "Limpiando SoftwareDistribution y Catroot2..." "Cyan"
+        Write-Centered "   [2/4] Limpiando carpetas SoftwareDistribution y Catroot2..." "Cyan"
         $sdPath = "$env:windir\SoftwareDistribution"
         $catPath = "$env:windir\System32\catroot2"
 
@@ -386,9 +394,12 @@ $Actions = @{
             } catch { Start-Sleep -Seconds 1 }
         }
 
-        Write-Centered "Reiniciando servicios..." "Cyan"
+        Write-Centered "   [3/4] Purgando cola de descargas BITS..." "Cyan"
+        try { bitsadmin /reset /allusers | Out-Null } catch { }
+
+        Write-Centered "   [4/4] Reiniciando servicios de Windows Update..." "Cyan"
         Start-Service wuauserv, cryptSvc, bits, dosvc -ErrorAction SilentlyContinue
-        Write-Centered "[OK] Servicios y cache de Windows Update restablecidos." "Green"
+        Write-Centered "[OK] Servicios y cache de Windows Update restablecidos completamente." "Green"
         Write-AuditLog "cmd_rep_wu" "OK"
     }
 
@@ -493,18 +504,32 @@ $Actions = @{
         $wingetBin = Get-WingetPath
         if (-not $wingetBin) {
             Write-Centered "[!] ATENCION: Winget (App Installer) no se encuentra instalado en este equipo." "Red"
-            Write-Centered "Puedes instalarlo desde la opcion 'Actualizar Winget y PowerShell (Win 10)' en el menu de Reparacion." "Yellow"
-            Write-AuditLog "cmd_soft_catalog" "ABORT" "Winget No Encontrado"
-            return
+            Write-Host "`n"; Write-Host (" " * 20) "+ Deseas intentar instalar/actualizar Winget y PowerShell ahora? (S/N): " -ForegroundColor Yellow -NoNewline
+            $ansW = Read-SingleKey
+            Write-Host $ansW -ForegroundColor Cyan
+            if ($ansW -eq 'S' -or $ansW -eq 'Y') {
+                & $db.comandos.cmd_rep_win10_update
+                $wingetBin = Get-WingetPath
+            }
+            if (-not $wingetBin) {
+                Write-Centered "[INFO] Se activara el modo Descarga Directa de Respaldo para instalar aplicaciones." "Cyan"
+                Start-Sleep -Seconds 2
+            }
         }
 
         $apps = @(
-            @{ID="1"; Name="Chrome"; Winget="Google.Chrome"}, @{ID="2"; Name="Firefox"; Winget="Mozilla.Firefox"},
-            @{ID="3"; Name="AnyDesk"; Winget="AnyDesk.AnyDesk"}, @{ID="4"; Name="7-Zip"; Winget="7zip.7zip"},
-            @{ID="5"; Name="VLC"; Winget="VideoLAN.VLC"}, @{ID="6"; Name="Adobe Reader"; Winget="Adobe.Acrobat.Reader.64-bit"},
-            @{ID="7"; Name="Notepad++"; Winget="Notepad++.Notepad++"}, @{ID="8"; Name="Zoom"; Winget="Zoom.Zoom"},
-            @{ID="9"; Name="Rufus"; Winget="Rufus.Rufus"}, @{ID="A"; Name="Spotify"; Winget="Spotify.Spotify"},
-            @{ID="B"; Name="OBS Studio"; Winget="OBSProject.OBSStudio"}, @{ID="C"; Name="WinRAR"; Winget="RARLab.WinRAR"}
+            @{ID="1"; Name="Chrome"; Winget="Google.Chrome"; Url="https://dl.google.com/chrome/install/latest/chrome_installer.exe"; Args="/silent /install"},
+            @{ID="2"; Name="Firefox"; Winget="Mozilla.Firefox"; Url="https://download.mozilla.org/?product=firefox-msi-latest-ssl&os=win64&lang=es-ES"; Args="/qn"},
+            @{ID="3"; Name="AnyDesk"; Winget="AnyDesk.AnyDesk"; Url="https://download.anydesk.com/AnyDesk.exe"; Args="--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent"},
+            @{ID="4"; Name="7-Zip"; Winget="7zip.7zip"; Url="https://www.7-zip.org/a/7z2408-x64.exe"; Args="/S"},
+            @{ID="5"; Name="VLC"; Winget="VideoLAN.VLC"; Url="https://get.videolan.org/vlc/3.0.21/win64/vlc-3.0.21-win64.exe"; Args="/L=1034 /S"},
+            @{ID="6"; Name="Adobe Reader"; Winget="Adobe.Acrobat.Reader.64-bit"; Url="https://ardownload2.adobe.com/pub/adobe/reader/win/AcrobatDC/2400120604/AcroRdrDC2400120604_en_US.exe"; Args="/sAll /rs /msi EULA_ACCEPT=YES"},
+            @{ID="7"; Name="Notepad++"; Winget="Notepad++.Notepad++"; Url="https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6.9/npp.8.6.9.Installer.x64.exe"; Args="/S"},
+            @{ID="8"; Name="Zoom"; Winget="Zoom.Zoom"; Url="https://zoom.us/client/latest/ZoomInstallerFull.exe"; Args="/silent"},
+            @{ID="9"; Name="Rufus"; Winget="Rufus.Rufus"; Url="https://github.com/pbatard/rufus/releases/download/v4.5/rufus-4.5.exe"; Args=""},
+            @{ID="A"; Name="Spotify"; Winget="Spotify.Spotify"; Url="https://download.scdn.co/SpotifySetup.exe"; Args="/silent"},
+            @{ID="B"; Name="OBS Studio"; Winget="OBSProject.OBSStudio"; Url="https://github.com/obsproject/obs-studio/releases/download/30.2.2/OBS-Studio-30.2.2-Full-Installer-x64.exe"; Args="/S"},
+            @{ID="C"; Name="WinRAR"; Winget="RARLab.WinRAR"; Url="https://www.rarlab.com/rar/winrar-x64-701es.exe"; Args="/S"}
         )
         $selected = New-Object System.Collections.Generic.List[string]
         while ($true) {
@@ -548,14 +573,63 @@ $Actions = @{
                 foreach ($id in $selected) {
                     $app = $apps | Where-Object { $_.ID -eq $id }
                     if ($app) {
-                        Write-Centered "Instalando $($app.Name) ($($app.Winget))..." "Cyan"
-                        try {
-                            & $wingetBin install $app.Winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-                            Write-Centered "[OK] $($app.Name) procesado." "Green"
-                            Write-AuditLog "cmd_soft_catalog" "OK" "Instalado: $($app.Name)"
-                        } catch {
-                            Write-Centered "[!] Error instalando $($app.Name): $($_.Exception.Message)" "Red"
-                            Write-AuditLog "cmd_soft_catalog" "ERROR" "$($app.Name): $($_.Exception.Message)"
+                        Write-Centered "Procesando instalacion de $($app.Name)..." "Cyan"
+                        $installed = $false
+
+                        # Plan A: Winget (con --source winget para OMITIR msstore y evitar fallos de tienda)
+                        if ($wingetBin) {
+                            try {
+                                Write-Centered "   [-] Intentando via Winget (Fuente: winget)..." "Gray"
+                                $procW = Start-Process -FilePath $wingetBin -ArgumentList "install $($app.Winget) --source winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements" -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+                                if ($procW -and ($procW.ExitCode -eq 0 -or $procW.ExitCode -eq 3010)) {
+                                    Write-Centered "[OK] $($app.Name) instalado correctamente via Winget." "Green"
+                                    Write-AuditLog "cmd_soft_catalog" "OK" "Winget: $($app.Name)"
+                                    $installed = $true
+                                } else {
+                                    Write-Centered "[!] Winget no pudo completar la instalacion. Probando descarga directa..." "Yellow"
+                                }
+                            } catch {
+                                Write-Centered "[!] Excepcion en Winget. Probando descarga directa de respaldo..." "Yellow"
+                            }
+                        }
+
+                        # Plan B: Descarga directa oficial de respaldo (EXE/MSI)
+                        if (-not $installed -and $app.Url) {
+                            try {
+                                Write-Centered "   [-] Descargando instalador oficial directo..." "Cyan"
+                                $ext = if ($app.Url -like "*.msi*") { "msi" } else { "exe" }
+                                $tempInstaller = "$env:TEMP\Installer_$($app.ID).$ext"
+                                try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13 } catch { }
+                                $reqHeaders = @{ "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+                                Invoke-WebRequest -Uri $app.Url -OutFile $tempInstaller -Headers $reqHeaders -UseBasicParsing -ErrorAction Stop
+
+                                if (Test-Path $tempInstaller) {
+                                    Write-Centered "   [-] Ejecutando instalacion silenciosa..." "Yellow"
+                                    if ($ext -eq "msi") {
+                                        $p = Start-Process msiexec.exe -ArgumentList "/i `"$tempInstaller`" /quiet /norestart" -Wait -PassThru -ErrorAction Stop
+                                    } else {
+                                        if ([string]::IsNullOrWhiteSpace($app.Args)) {
+                                            $dest = Join-Path $PublicDesktop "$($app.Name).exe"
+                                            Copy-Item -Path $tempInstaller -Destination $dest -Force
+                                            $p = [PSCustomObject]@{ ExitCode = 0 }
+                                        } else {
+                                            $p = Start-Process -FilePath $tempInstaller -ArgumentList $app.Args -Wait -PassThru -ErrorAction Stop
+                                        }
+                                    }
+                                    if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) {
+                                        Write-Centered "[OK] $($app.Name) instalado/descargado correctamente." "Green"
+                                        Write-AuditLog "cmd_soft_catalog" "OK" "Directo: $($app.Name)"
+                                        $installed = $true
+                                    } else {
+                                        Write-Centered "[!] Instalador finalizo con codigo: $($p.ExitCode)" "Red"
+                                        Write-AuditLog "cmd_soft_catalog" "ERROR" "$($app.Name) ExitCode $($p.ExitCode)"
+                                    }
+                                    Remove-Item -Path $tempInstaller -Force -ErrorAction SilentlyContinue
+                                }
+                            } catch {
+                                Write-Centered "[FALLO] Error en descarga/instalacion directa de $($app.Name): $($_.Exception.Message)" "Red"
+                                Write-AuditLog "cmd_soft_catalog" "ERROR" "$($app.Name): $($_.Exception.Message)"
+                            }
                         }
                     }
                 }
@@ -591,7 +665,8 @@ $Actions = @{
             "*bing*", "*xboxapp*", "*gethelp*", "*solitaire*", "*people*", "*skype*",
             "*cortana*", "*3dviewer*", "*mixedreality*", "*zunevideo*", "*zunemusic*",
             "*yourphone*", "*clipchamp*", "*news*", "*weather*", "*feedbackhub*",
-            "*microsoftstickynotes*", "*todos*", "*getstarted*", "*messaging*"
+            "*microsoftstickynotes*", "*todos*", "*getstarted*", "*messaging*",
+            "*powerautomatedesktop*", "*gamingapp*", "*windowsalarms*", "*windowsmaps*"
         )
         Write-Host " "
         if ($global:lang -eq 'es') {
@@ -994,11 +1069,34 @@ $Actions = @{
         Write-Host $ans -ForegroundColor Cyan
 
         if ($ans -eq 'S' -or $ans -eq 'Y') {
-            Write-Centered "1/2 Descargando e Instalando AppInstaller (Winget)..." "Cyan"
+            try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13 } catch { }
+            $headers = @{ "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) PowerShell/5.1" }
+
+            Write-Centered "1/2 Descargando e Instalando AppInstaller (Winget) y Dependencias..." "Cyan"
+            
+            # Descarga e instalacion previa de dependencias UWP requeridas por DesktopAppInstaller en Windows 10
+            try {
+                Write-Centered "   [-] Verificando dependencias UWP (VCLibs & UI.Xaml)..." "Gray"
+                $vcLibsUrl = "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
+                $vcLibsPath = "$env:TEMP\VCLibs.appx"
+                Invoke-WebRequest -Uri $vcLibsUrl -OutFile $vcLibsPath -Headers $headers -UseBasicParsing -ErrorAction SilentlyContinue
+                if (Test-Path $vcLibsPath) {
+                    Add-AppxPackage -Path $vcLibsPath -ErrorAction SilentlyContinue
+                }
+
+                $uiXamlUrl = "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
+                $uiXamlPath = "$env:TEMP\UI.Xaml.appx"
+                Invoke-WebRequest -Uri $uiXamlUrl -OutFile $uiXamlPath -Headers $headers -UseBasicParsing -ErrorAction SilentlyContinue
+                if (Test-Path $uiXamlPath) {
+                    Add-AppxPackage -Path $uiXamlPath -ErrorAction SilentlyContinue
+                }
+            } catch { }
+
             try {
                 $wingetUrl = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
                 $wingetPath = "$env:TEMP\winget.msixbundle"
-                Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetPath -UseBasicParsing -ErrorAction Stop
+                Write-Centered "   [-] Descargando DesktopAppInstaller..." "Gray"
+                Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetPath -Headers $headers -UseBasicParsing -ErrorAction Stop
                 
                 Add-AppxPackage -Path $wingetPath -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop
                 Write-Centered "[OK] Winget Instalado/Actualizado correctamente." "Green"
@@ -1015,29 +1113,54 @@ $Actions = @{
 
             Write-Centered "`n2/2 Descargando e Instalando PowerShell Core (pwsh)..." "Cyan"
             try {
-                $pwshMsiUrl = "https://github.com/PowerShell/PowerShell/releases/latest/download/PowerShell-7.4.6-win-x64.msi"
+                $pwshMsiUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/PowerShell-7.4.6-win-x64.msi"
                 try {
-                    $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -UseBasicParsing -ErrorAction Stop
+                    $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -Headers $headers -UseBasicParsing -ErrorAction Stop
                     $asset = $releaseInfo.assets | Where-Object { $_.name -like "PowerShell-*-win-x64.msi" } | Select-Object -First 1
                     if ($asset) { $pwshMsiUrl = $asset.browser_download_url }
                 } catch { }
 
                 $pwshPath = "$env:TEMP\pwsh.msi"
                 Write-Centered "Descargando desde GitHub: $pwshMsiUrl" "Gray"
-                Invoke-WebRequest -Uri $pwshMsiUrl -OutFile $pwshPath -UseBasicParsing -ErrorAction Stop
                 
-                Write-Centered "Ejecutando MSI de PowerShell Core..." "Yellow"
-                $proc = Start-Process msiexec.exe -ArgumentList "/i `"$pwshPath`" /quiet /norestart" -Wait -PassThru -ErrorAction Stop
-                if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
-                    Write-Centered "[OK] PowerShell Core Instalado/Actualizado exitosamente." "Green"
-                    Write-AuditLog "cmd_rep_win10_update" "OK" "PowerShell Core Actualizado"
-                } else {
-                    Write-Centered "[!] MSI finalizo con codigo: $($proc.ExitCode)" "Yellow"
-                    Write-AuditLog "cmd_rep_win10_update" "WARN" "MSI ExitCode $($proc.ExitCode)"
+                $downloadSuccess = $false
+                try {
+                    Invoke-WebRequest -Uri $pwshMsiUrl -OutFile $pwshPath -Headers $headers -UseBasicParsing -ErrorAction Stop
+                    $downloadSuccess = $true
+                } catch {
+                    $fallbackUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.5/PowerShell-7.4.5-win-x64.msi"
+                    Write-Centered "Reintentando descarga con URL de respaldo..." "Yellow"
+                    Invoke-WebRequest -Uri $fallbackUrl -OutFile $pwshPath -Headers $headers -UseBasicParsing -ErrorAction Stop
+                    $downloadSuccess = $true
+                }
+
+                if ($downloadSuccess -and (Test-Path $pwshPath)) {
+                    Write-Centered "Ejecutando MSI de PowerShell Core..." "Yellow"
+                    $proc = Start-Process msiexec.exe -ArgumentList "/i `"$pwshPath`" /quiet /norestart" -Wait -PassThru -ErrorAction Stop
+                    if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
+                        Write-Centered "[OK] PowerShell Core Instalado/Actualizado exitosamente." "Green"
+                        Write-AuditLog "cmd_rep_win10_update" "OK" "PowerShell Core Actualizado"
+                    } else {
+                        Write-Centered "[!] MSI finalizo con codigo: $($proc.ExitCode)" "Yellow"
+                        Write-AuditLog "cmd_rep_win10_update" "WARN" "MSI ExitCode $($proc.ExitCode)"
+                    }
                 }
             } catch {
-                Write-Centered "[FALLO] Error actualizando PowerShell Core: $($_.Exception.Message)" "Red"
-                Write-AuditLog "cmd_rep_win10_update" "ERROR" $_.Exception.Message
+                $wBin = Get-WingetPath
+                if ($wBin) {
+                    Write-Centered "Intentando instalar PowerShell via Winget..." "Yellow"
+                    try {
+                        & $wBin install --id Microsoft.PowerShell --source winget --silent --accept-package-agreements --accept-source-agreements
+                        Write-Centered "[OK] PowerShell instalado via Winget." "Green"
+                        Write-AuditLog "cmd_rep_win10_update" "OK" "PowerShell via Winget"
+                    } catch {
+                        Write-Centered "[FALLO] Error actualizando PowerShell Core: $($_.Exception.Message)" "Red"
+                        Write-AuditLog "cmd_rep_win10_update" "ERROR" $_.Exception.Message
+                    }
+                } else {
+                    Write-Centered "[FALLO] Error actualizando PowerShell Core: $($_.Exception.Message)" "Red"
+                    Write-AuditLog "cmd_rep_win10_update" "ERROR" $_.Exception.Message
+                }
             }
         }
     }
@@ -1051,6 +1174,18 @@ $Actions = @{
         Write-Host $ans -ForegroundColor Cyan
 
         if ($ans -eq 'S' -or $ans -eq 'Y') {
+            # Registrar mecanismo de restauracion de red persistente en caso de reinicio de la PC durante el upgrade
+            $restoreCmd = 'Get-NetAdapter | Enable-NetAdapter -Confirm:$false; Unregister-ScheduledTask -TaskName "Toolbox_EnableNet" -Confirm:$false -ErrorAction SilentlyContinue; Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" -Name "ToolboxEnableNet" -ErrorAction SilentlyContinue'
+            try {
+                $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"$restoreCmd`""
+                $trigger = New-ScheduledTaskTrigger -AtStartup
+                Register-ScheduledTask -TaskName "Toolbox_EnableNet" -Action $action -Trigger $trigger -User "NT AUTHORITY\SYSTEM" -RunLevel Highest -Force | Out-Null
+            } catch { }
+
+            try {
+                Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce' -Name 'ToolboxEnableNet' -Value 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-NetAdapter | Enable-NetAdapter -Confirm:$false"' -ErrorAction SilentlyContinue
+            } catch { }
+
             Write-Centered "Deshabilitando adaptadores de red..." "Yellow"
             $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
             foreach ($a in $adapters) { Disable-NetAdapter -Name $a.Name -Confirm:$false }
@@ -1070,7 +1205,12 @@ $Actions = @{
 
             Write-Centered "Restaurando adaptadores de red..." "Yellow"
             foreach ($a in $adapters) { Enable-NetAdapter -Name $a.Name -Confirm:$false }
+            try { Get-NetAdapter | Enable-NetAdapter -Confirm:$false } catch { }
             Write-Centered "Red restaurada." "Green"
+
+            # Si la ejecucion continua en la misma sesion sin reinicio inmediato, limpiamos los registros de arranque
+            try { Unregister-ScheduledTask -TaskName "Toolbox_EnableNet" -Confirm:$false -ErrorAction SilentlyContinue } catch { }
+            try { Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce' -Name 'ToolboxEnableNet' -ErrorAction SilentlyContinue } catch { }
         }
     }
     "cmd_soft_mas" = {
@@ -1092,6 +1232,8 @@ $Actions = @{
 $currentMenu = "principal"
 
 while ($true) {
+    $ProgressPreference = 'SilentlyContinue'
+    try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
     [Console]::Clear()
     $l = $global:lang
     $menuData = $db.menus.$currentMenu
