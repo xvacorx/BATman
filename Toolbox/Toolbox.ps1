@@ -609,10 +609,22 @@ $Actions = @{
                     $app = $apps | Where-Object { $_.ID -eq $id }
                     if ($app) {
                         Write-Centered "Procesando instalacion de $($app.Name)..." "Cyan"
-                        $installed = $false
+                        # Pre-verificacion especial para AnyDesk
+                        if ($app.Name -eq "AnyDesk") {
+                            $adPath1 = "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
+                            $adPath2 = "$env:ProgramFiles\AnyDesk\AnyDesk.exe"
+                            if ((Test-Path $adPath1) -or (Test-Path $adPath2)) {
+                                Write-Centered "[OK] AnyDesk ya se encuentra instalado en este equipo." "Green"
+                                Write-AuditLog "cmd_soft_catalog" "OK" "AnyDesk: Ya instalado"
+                                $installed = $true
+                            } else {
+                                # Detener procesos portables o colgados en RAM que provocan error 11341828 (0x00AD0004)
+                                Stop-Process -Name "anydesk" -Force -ErrorAction SilentlyContinue
+                            }
+                        }
 
                         # Plan A: Winget (con --source winget para OMITIR msstore y evitar fallos de tienda)
-                        if ($wingetBin) {
+                        if (-not $installed -and $wingetBin) {
                             try {
                                 Write-Centered "   [-] Intentando via Winget (Fuente: winget)..." "Gray"
                                 $outFile = "$env:TEMP\winget_out_$($app.ID).txt"
@@ -624,14 +636,14 @@ $Actions = @{
                                     Remove-Item $outFile -Force -ErrorAction SilentlyContinue
                                 }
 
-                                $alreadyInstalledCodes = @(0, 3010, -1978234874, 2316632070, -1978234860, 2316632084)
+                                $alreadyInstalledCodes = @(0, 3010, -1978234874, 2316632070, -1978234860, 2316632084, 11341828, 11341825)
                                 $isAlreadyInstalledText = ($outText -like "*already installed*" -or $outText -like "*ya está instalado*" -or $outText -like "*ya se encuentra instalad*" -or $outText -like "*No newer package version*" -or $outText -like "*No se encontró ninguna versión más reciente*" -or $outText -like "*No update found*")
 
                                 if ($procW -and ($alreadyInstalledCodes -contains $procW.ExitCode -or $isAlreadyInstalledText)) {
                                     if ($procW.ExitCode -eq 0 -or $procW.ExitCode -eq 3010) {
                                         Write-Centered "[OK] $($app.Name) instalado/actualizado correctamente via Winget." "Green"
                                     } else {
-                                        Write-Centered "[OK] $($app.Name) ya se encuentra instalado en su ultima version." "Green"
+                                        Write-Centered "[OK] $($app.Name) ya se encuentra instalado o en ejecucion." "Green"
                                     }
                                     Write-AuditLog "cmd_soft_catalog" "OK" "Winget: $($app.Name)"
                                     $installed = $true
@@ -665,8 +677,32 @@ $Actions = @{
                                             $p = Start-Process -FilePath $tempInstaller -ArgumentList $app.Args -Wait -PassThru -ErrorAction Stop
                                         }
                                     }
-                                    if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) {
-                                        Write-Centered "[OK] $($app.Name) instalado/descargado correctamente." "Green"
+
+                                    # Verificacion fisica especial para AnyDesk tras ejecucion de instalador directo
+                                    if ($app.Name -eq "AnyDesk") {
+                                        $targetPath1 = "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
+                                        $targetPath2 = "$env:ProgramFiles\AnyDesk\AnyDesk.exe"
+                                        if (-not (Test-Path $targetPath1) -and -not (Test-Path $targetPath2)) {
+                                            Write-Centered "   [-] Desplegando binario AnyDesk en Program Files..." "Yellow"
+                                            $destDir = "${env:ProgramFiles(x86)}\AnyDesk"
+                                            if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+                                            $destExe = Join-Path $destDir "AnyDesk.exe"
+                                            Copy-Item -Path $tempInstaller -Destination $destExe -Force -ErrorAction SilentlyContinue
+                                            try {
+                                                $wshell = New-Object -ComObject WScript.Shell
+                                                $sc = $wshell.CreateShortcut("$PublicDesktop\AnyDesk.lnk")
+                                                $sc.TargetPath = $destExe
+                                                $sc.Save()
+                                            } catch { }
+                                        }
+                                        if ((Test-Path $targetPath1) -or (Test-Path $targetPath2) -or (Test-Path "$PublicDesktop\AnyDesk.lnk")) {
+                                            $p = [PSCustomObject]@{ ExitCode = 0 }
+                                        }
+                                    }
+
+                                    $validInstallerCodes = @(0, 3010, 11341828, 11341825, -1978234874, 2316632070)
+                                    if ($p -and ($validInstallerCodes -contains $p.ExitCode)) {
+                                        Write-Centered "[OK] $($app.Name) instalado correctamente." "Green"
                                         Write-AuditLog "cmd_soft_catalog" "OK" "Directo: $($app.Name)"
                                         $installed = $true
                                     } else {
