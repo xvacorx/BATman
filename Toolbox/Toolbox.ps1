@@ -151,6 +151,41 @@ function Get-WingetPath {
     return $null
 }
 
+function Invoke-SafeDownload {
+    param(
+        [string]$Uri,
+        [string]$OutFile,
+        [hashtable]$Headers = @{}
+    )
+    if ($null -eq $Headers) { $Headers = @{} }
+    if (-not $Headers.ContainsKey("User-Agent")) {
+        $Headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13 } catch { }
+
+    $maxRetries = 3
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        try {
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -Headers $Headers -UseBasicParsing -ErrorAction Stop
+            if (Test-Path $OutFile) { return $true }
+        } catch {
+            $is429 = $_.Exception.Message -like "*429*" -or $_.Exception.Message -like "*Too Many Requests*"
+            if ($attempt -lt $maxRetries) {
+                $waitTime = $attempt * 3
+                if ($is429) {
+                    Write-Centered "   [!] HTTP 429 (Too Many Requests). Reintentando en ${waitTime}s (Intento $attempt/$maxRetries)..." "Yellow"
+                } else {
+                    Write-Centered "   [!] Reintentando descarga en ${waitTime}s (Intento $attempt/$maxRetries)..." "Yellow"
+                }
+                Start-Sleep -Seconds $waitTime
+            } else {
+                return $false
+            }
+        }
+    }
+    return $false
+}
+
 # --- 4. CARGA DE BASE DE DATOS (JSON) ---
 $jsonUrl = "https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/menu.json"
 
@@ -580,9 +615,24 @@ $Actions = @{
                         if ($wingetBin) {
                             try {
                                 Write-Centered "   [-] Intentando via Winget (Fuente: winget)..." "Gray"
-                                $procW = Start-Process -FilePath $wingetBin -ArgumentList "install $($app.Winget) --source winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements" -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
-                                if ($procW -and ($procW.ExitCode -eq 0 -or $procW.ExitCode -eq 3010)) {
-                                    Write-Centered "[OK] $($app.Name) instalado correctamente via Winget." "Green"
+                                $outFile = "$env:TEMP\winget_out_$($app.ID).txt"
+                                $procW = Start-Process -FilePath $wingetBin -ArgumentList "install $($app.Winget) --source winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements" -Wait -PassThru -NoNewWindow -RedirectStandardOutput $outFile -RedirectStandardError $outFile -ErrorAction SilentlyContinue
+
+                                $outText = ""
+                                if (Test-Path $outFile) {
+                                    $outText = Get-Content $outFile -Raw -ErrorAction SilentlyContinue
+                                    Remove-Item $outFile -Force -ErrorAction SilentlyContinue
+                                }
+
+                                $alreadyInstalledCodes = @(0, 3010, -1978234874, 2316632070, -1978234860, 2316632084)
+                                $isAlreadyInstalledText = ($outText -like "*already installed*" -or $outText -like "*ya está instalado*" -or $outText -like "*ya se encuentra instalad*" -or $outText -like "*No newer package version*" -or $outText -like "*No se encontró ninguna versión más reciente*" -or $outText -like "*No update found*")
+
+                                if ($procW -and ($alreadyInstalledCodes -contains $procW.ExitCode -or $isAlreadyInstalledText)) {
+                                    if ($procW.ExitCode -eq 0 -or $procW.ExitCode -eq 3010) {
+                                        Write-Centered "[OK] $($app.Name) instalado/actualizado correctamente via Winget." "Green"
+                                    } else {
+                                        Write-Centered "[OK] $($app.Name) ya se encuentra instalado en su ultima version." "Green"
+                                    }
                                     Write-AuditLog "cmd_soft_catalog" "OK" "Winget: $($app.Name)"
                                     $installed = $true
                                 } else {
@@ -593,17 +643,16 @@ $Actions = @{
                             }
                         }
 
-                        # Plan B: Descarga directa oficial de respaldo (EXE/MSI)
+                        # Plan B: Descarga directa oficial de respaldo (EXE/MSI) con mitigacion de HTTP 429
                         if (-not $installed -and $app.Url) {
                             try {
                                 Write-Centered "   [-] Descargando instalador oficial directo..." "Cyan"
                                 $ext = if ($app.Url -like "*.msi*") { "msi" } else { "exe" }
                                 $tempInstaller = "$env:TEMP\Installer_$($app.ID).$ext"
-                                try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13 } catch { }
-                                $reqHeaders = @{ "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
-                                Invoke-WebRequest -Uri $app.Url -OutFile $tempInstaller -Headers $reqHeaders -UseBasicParsing -ErrorAction Stop
 
-                                if (Test-Path $tempInstaller) {
+                                $downloadOk = Invoke-SafeDownload -Uri $app.Url -OutFile $tempInstaller
+
+                                if ($downloadOk -and (Test-Path $tempInstaller)) {
                                     Write-Centered "   [-] Ejecutando instalacion silenciosa..." "Yellow"
                                     if ($ext -eq "msi") {
                                         $p = Start-Process msiexec.exe -ArgumentList "/i `"$tempInstaller`" /quiet /norestart" -Wait -PassThru -ErrorAction Stop
@@ -625,12 +674,16 @@ $Actions = @{
                                         Write-AuditLog "cmd_soft_catalog" "ERROR" "$($app.Name) ExitCode $($p.ExitCode)"
                                     }
                                     Remove-Item -Path $tempInstaller -Force -ErrorAction SilentlyContinue
+                                } else {
+                                    Write-Centered "[FALLO] No se pudo descargar el instalador directo de $($app.Name)." "Red"
+                                    Write-AuditLog "cmd_soft_catalog" "ERROR" "$($app.Name): Download failed"
                                 }
                             } catch {
                                 Write-Centered "[FALLO] Error en descarga/instalacion directa de $($app.Name): $($_.Exception.Message)" "Red"
                                 Write-AuditLog "cmd_soft_catalog" "ERROR" "$($app.Name): $($_.Exception.Message)"
                             }
                         }
+                        Start-Sleep -Milliseconds 500
                     }
                 }
                 Write-Centered "`nInstalacion finalizada." "Green"
@@ -1096,7 +1149,8 @@ $Actions = @{
                 $wingetUrl = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
                 $wingetPath = "$env:TEMP\winget.msixbundle"
                 Write-Centered "   [-] Descargando DesktopAppInstaller..." "Gray"
-                Invoke-WebRequest -Uri $wingetUrl -OutFile $wingetPath -Headers $headers -UseBasicParsing -ErrorAction Stop
+                $dOk = Invoke-SafeDownload -Uri $wingetUrl -OutFile $wingetPath -Headers $headers
+                if (-not $dOk) { throw "Fallo la descarga de DesktopAppInstaller" }
                 
                 Add-AppxPackage -Path $wingetPath -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop
                 Write-Centered "[OK] Winget Instalado/Actualizado correctamente." "Green"
@@ -1123,15 +1177,11 @@ $Actions = @{
                 $pwshPath = "$env:TEMP\pwsh.msi"
                 Write-Centered "Descargando desde GitHub: $pwshMsiUrl" "Gray"
                 
-                $downloadSuccess = $false
-                try {
-                    Invoke-WebRequest -Uri $pwshMsiUrl -OutFile $pwshPath -Headers $headers -UseBasicParsing -ErrorAction Stop
-                    $downloadSuccess = $true
-                } catch {
+                $downloadSuccess = Invoke-SafeDownload -Uri $pwshMsiUrl -OutFile $pwshPath -Headers $headers
+                if (-not $downloadSuccess) {
                     $fallbackUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.5/PowerShell-7.4.5-win-x64.msi"
                     Write-Centered "Reintentando descarga con URL de respaldo..." "Yellow"
-                    Invoke-WebRequest -Uri $fallbackUrl -OutFile $pwshPath -Headers $headers -UseBasicParsing -ErrorAction Stop
-                    $downloadSuccess = $true
+                    $downloadSuccess = Invoke-SafeDownload -Uri $fallbackUrl -OutFile $pwshPath -Headers $headers
                 }
 
                 if ($downloadSuccess -and (Test-Path $pwshPath)) {
