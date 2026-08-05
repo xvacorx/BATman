@@ -166,7 +166,7 @@ function Invoke-SafeDownload {
     $maxRetries = 3
     for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         try {
-            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -Headers $Headers -UseBasicParsing -ErrorAction Stop
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -Headers $Headers -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
             if (Test-Path $OutFile) { return $true }
         } catch {
             $is429 = $_.Exception.Message -like "*429*" -or $_.Exception.Message -like "*Too Many Requests*"
@@ -563,7 +563,7 @@ $Actions = @{
             @{ID="8"; Name="Zoom"; Winget="Zoom.Zoom"; Url="https://zoom.us/client/latest/ZoomInstallerFull.exe"; Args="/silent"},
             @{ID="9"; Name="Rufus"; Winget="Rufus.Rufus"; Url="https://github.com/pbatard/rufus/releases/download/v4.5/rufus-4.5.exe"; Args=""},
             @{ID="A"; Name="Spotify"; Winget="Spotify.Spotify"; Url="https://download.scdn.co/SpotifySetup.exe"; Args="/silent"},
-            @{ID="B"; Name="OBS Studio"; Winget="OBSProject.OBSStudio"; Url="https://github.com/obsproject/obs-studio/releases/download/30.2.2/OBS-Studio-30.2.2-Full-Installer-x64.exe"; Args="/S"},
+            @{ID="B"; Name="OBS Studio"; Winget="OBSProject.OBSStudio"; Url="https://github.com/obsproject/obs-studio/releases/download/32.2.1/OBS-Studio-32.2.1-Windows-x64-Installer.exe"; Args="/S"},
             @{ID="C"; Name="WinRAR"; Winget="RARLab.WinRAR"; Url="https://www.rarlab.com/rar/winrar-x64-701es.exe"; Args="/S"}
         )
         $selected = New-Object System.Collections.Generic.List[string]
@@ -605,10 +605,14 @@ $Actions = @{
             if ($inputKey -eq 'E') { $selected.Clear(); $selected.AddRange(@("1","3","4","5","7")) }
             if ($inputKey -eq 'I' -and $selected.Count -gt 0) {
                 Write-Host "`n"
+                $totalCount = $selected.Count
+                $currentIndex = 0
                 foreach ($id in $selected) {
+                    $installed = $false
+                    $currentIndex++
                     $app = $apps | Where-Object { $_.ID -eq $id }
                     if ($app) {
-                        Write-Centered "Procesando instalacion de $($app.Name)..." "Cyan"
+                        Write-Centered "[$currentIndex/$totalCount] Procesando instalacion de $($app.Name)..." "Cyan"
                         # Pre-verificacion especial para AnyDesk
                         if ($app.Name -eq "AnyDesk") {
                             $adPath1 = "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
@@ -628,12 +632,17 @@ $Actions = @{
                             try {
                                 Write-Centered "   [-] Intentando via Winget (Fuente: winget)..." "Gray"
                                 $outFile = "$env:TEMP\winget_out_$($app.ID).txt"
-                                $procW = Start-Process -FilePath $wingetBin -ArgumentList "install $($app.Winget) --source winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements" -Wait -PassThru -NoNewWindow -RedirectStandardOutput $outFile -RedirectStandardError $outFile -ErrorAction SilentlyContinue
+                                $errFile = "$env:TEMP\winget_err_$($app.ID).txt"
+                                $procW = Start-Process -FilePath $wingetBin -ArgumentList "install $($app.Winget) --source winget --silent --disable-interactivity --accept-source-agreements --accept-package-agreements" -Wait -PassThru -NoNewWindow -RedirectStandardOutput $outFile -RedirectStandardError $errFile -ErrorAction SilentlyContinue
 
                                 $outText = ""
                                 if (Test-Path $outFile) {
-                                    $outText = Get-Content $outFile -Raw -ErrorAction SilentlyContinue
+                                    $outText += Get-Content $outFile -Raw -ErrorAction SilentlyContinue
                                     Remove-Item $outFile -Force -ErrorAction SilentlyContinue
+                                }
+                                if (Test-Path $errFile) {
+                                    $outText += Get-Content $errFile -Raw -ErrorAction SilentlyContinue
+                                    Remove-Item $errFile -Force -ErrorAction SilentlyContinue
                                 }
 
                                 $alreadyInstalledCodes = @(0, 3010, -1978234874, 2316632070, -1978234860, 2316632084, 11341828, 11341825)
