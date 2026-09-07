@@ -6,10 +6,28 @@ COLOR 0B
 cd /d "%~dp0"
 
 echo.
-echo Iniciando motor PowerShell...
+echo Iniciando motor de la Toolbox...
 echo Por favor, acepta los permisos de Administrador si se solicitan.
 
-:: Ejecutar el script saltando cualquier restricción de ejecución local
+:: 1. Prioridad: PowerShell 7 (pwsh.exe) si está en PATH o instalado en Program Files
+where pwsh.exe >nul 2>nul
+if %errorlevel% equ 0 (
+    pwsh -NoProfile -ExecutionPolicy Bypass -File "Toolbox.ps1"
+    exit /b
+)
+
+if exist "%ProgramFiles%\PowerShell\7\pwsh.exe" (
+    "%ProgramFiles%\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File "Toolbox.ps1"
+    exit /b
+)
+
+if exist "%ProgramFiles(x86)%\PowerShell\7\pwsh.exe" (
+    "%ProgramFiles(x86)%\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File "Toolbox.ps1"
+    exit /b
+)
+
+:: 2. Fallback: Windows PowerShell 5.1 clásico
 PowerShell -NoProfile -ExecutionPolicy Bypass -File "Toolbox.ps1"
 
-exit
+exit /b
+

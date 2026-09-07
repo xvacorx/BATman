@@ -273,8 +273,8 @@
                 },
                 {
                     "tecla": "7",
-                    "label_es": "Actualizar Winget y PowerShell (Win 10)",
-                    "label_en": "Update Winget & PowerShell (Win 10)",
+                    "label_es": "Instalar/Actualizar Winget y PowerShell 7 (pwsh)",
+                    "label_en": "Install/Update Winget & PowerShell 7 (pwsh)",
                     "target": "cmd_rep_win10_update",
                     "color": "Yellow",
                     "os": [

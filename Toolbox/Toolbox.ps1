@@ -24,12 +24,17 @@ if ($IsWindows) {
             } catch { }
         }
 
+        $hostExe = (Get-Process -Id $PID -ErrorAction SilentlyContinue).Path
+        if ([string]::IsNullOrWhiteSpace($hostExe) -or -not (Test-Path $hostExe)) {
+            $hostExe = if (Get-Command pwsh.exe -ErrorAction SilentlyContinue) { "pwsh.exe" } else { "powershell.exe" }
+        }
+
         if (-not $isLocal) {
             # Usamos un bloque try-catch dentro del comando remoto para que la ventana NO se cierre si falla
             $remoteCmd = "try { iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1) } catch { Write-Host '[!] Error Fatal en la elevacion: ' + `$_.Exception.Message -ForegroundColor Red; Read-Host 'Presiona Enter para cerrar' }"
-            Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"$remoteCmd`""
+            Start-Process $hostExe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "`"$remoteCmd`""
         } else {
-            Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
+            Start-Process $hostExe -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`""
         }
         exit
     }
@@ -543,7 +548,7 @@ $Actions = @{
             $ansW = Read-SingleKey
             Write-Host $ansW -ForegroundColor Cyan
             if ($ansW -eq 'S' -or $ansW -eq 'Y') {
-                & $db.comandos.cmd_rep_win10_update
+                & $Actions["cmd_rep_win10_update"]
                 $wingetBin = Get-WingetPath
             }
             if (-not $wingetBin) {
@@ -1158,10 +1163,10 @@ $Actions = @{
         }
     }
     "cmd_rep_win10_update" = {
-        Write-Centered "=== ACTUALIZAR WINGET Y POWERSHELL (WIN 10/11) ===" "Cyan"
+        Write-Centered "=== INSTALAR / ACTUALIZAR WINGET Y POWERSHELL 7 (PWSH) ===" "Cyan"
         Write-Host "`n"
-        Write-Centered "Este proceso descargara e instalara/actualizara Winget (AppInstaller) y PowerShell Core (pwsh)." "Yellow"
-        Write-Centered "Recomendado para solucionar faltas de librerias en Windows 10." "White"
+        Write-Centered "Este proceso descargara e instalara/actualizara Winget (AppInstaller) y PowerShell Core 7 (pwsh)." "Yellow"
+        Write-Centered "Resuelve dependencias faltantes (WindowsAppRuntime 1.8, VCLibs) sin requerir Microsoft Store." "White"
         Write-Host "`n"; Write-Host (" " * 30) "+ Deseas continuar? (S/N): " -ForegroundColor Gray -NoNewline
         $ans = Read-SingleKey
         Write-Host $ans -ForegroundColor Cyan
@@ -1170,26 +1175,71 @@ $Actions = @{
             try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13 } catch { }
             $headers = @{ "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) PowerShell/5.1" }
 
+            $is64 = [Environment]::Is64BitOperatingSystem
+            $procArch = $env:PROCESSOR_ARCHITECTURE
+            $arch = if ($is64) {
+                if ($procArch -like "*ARM*") { "arm64" } else { "x64" }
+            } else {
+                "x86"
+            }
+
             Write-Centered "1/2 Descargando e Instalando AppInstaller (Winget) y Dependencias..." "Cyan"
             
-            # Descarga e instalacion previa de dependencias UWP requeridas por DesktopAppInstaller en Windows 10
-            try {
-                Write-Centered "   [-] Verificando dependencias UWP (VCLibs & UI.Xaml)..." "Gray"
-                $vcLibsUrl = "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
-                $vcLibsPath = "$env:TEMP\VCLibs.appx"
-                Invoke-WebRequest -Uri $vcLibsUrl -OutFile $vcLibsPath -Headers $headers -UseBasicParsing -ErrorAction SilentlyContinue
-                if (Test-Path $vcLibsPath) {
-                    Add-AppxPackage -Path $vcLibsPath -ErrorAction SilentlyContinue
-                }
+            # Descarga del paquete oficial de dependencias de winget-cli (WindowsAppRuntime 1.8, VCLibs UWP)
+            $depsUrl = "https://github.com/microsoft/winget-cli/releases/latest/download/DesktopAppInstaller_Dependencies.zip"
+            $depsZip = "$env:TEMP\winget_deps.zip"
+            $depsDir = "$env:TEMP\winget_deps"
+            $installedDeps = @()
 
-                $uiXamlUrl = "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
-                $uiXamlPath = "$env:TEMP\UI.Xaml.appx"
-                Invoke-WebRequest -Uri $uiXamlUrl -OutFile $uiXamlPath -Headers $headers -UseBasicParsing -ErrorAction SilentlyContinue
-                if (Test-Path $uiXamlPath) {
-                    Add-AppxPackage -Path $uiXamlPath -ErrorAction SilentlyContinue
-                }
-            } catch { }
+            if (Test-Path $depsDir) { Remove-Item $depsDir -Recurse -Force -ErrorAction SilentlyContinue }
 
+            Write-Centered "   [-] Descargando dependencias oficiales (VCLibs & WindowsAppRuntime)..." "Gray"
+            $dDepsOk = Invoke-SafeDownload -Uri $depsUrl -OutFile $depsZip -Headers $headers
+
+            if ($dDepsOk -and (Test-Path $depsZip)) {
+                try {
+                    if (Get-Command Expand-Archive -ErrorAction SilentlyContinue) {
+                        Expand-Archive -Path $depsZip -DestinationPath $depsDir -Force -ErrorAction Stop
+                    } else {
+                        Add-Type -AssemblyName System.IO.Compression.FileSystem
+                        [System.IO.Compression.ZipFile]::ExtractToDirectory($depsZip, $depsDir)
+                    }
+
+                    $archDir = Join-Path $depsDir $arch
+                    if (-not (Test-Path $archDir)) { $archDir = Join-Path $depsDir "x64" }
+
+                    if (Test-Path $archDir) {
+                        $depPackages = Get-ChildItem -Path $archDir -Filter "*.appx" -ErrorAction SilentlyContinue
+                        foreach ($depPkg in $depPackages) {
+                            Write-Centered "   [-] Instalando $($depPkg.Name)..." "Gray"
+                            try {
+                                Add-AppxPackage -Path $depPkg.FullName -ErrorAction Stop
+                            } catch { }
+                            $installedDeps += $depPkg.FullName
+                        }
+                    }
+                } catch {
+                    Write-Centered "   [!] Advertencia al procesar dependencias: $($_.Exception.Message)" "Yellow"
+                }
+            }
+
+            # Respaldo de dependencias individuales si el zip no estuvo disponible
+            if ($installedDeps.Count -eq 0) {
+                try {
+                    Write-Centered "   [-] Descargando dependencias individuales de respaldo..." "Gray"
+                    $vcLibsUrl = "https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx"
+                    $vcLibsPath = "$env:TEMP\VCLibs.appx"
+                    Invoke-WebRequest -Uri $vcLibsUrl -OutFile $vcLibsPath -Headers $headers -UseBasicParsing -ErrorAction SilentlyContinue
+                    if (Test-Path $vcLibsPath) { Add-AppxPackage -Path $vcLibsPath -ErrorAction SilentlyContinue; $installedDeps += $vcLibsPath }
+
+                    $uiXamlUrl = "https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx"
+                    $uiXamlPath = "$env:TEMP\UI.Xaml.appx"
+                    Invoke-WebRequest -Uri $uiXamlUrl -OutFile $uiXamlPath -Headers $headers -UseBasicParsing -ErrorAction SilentlyContinue
+                    if (Test-Path $uiXamlPath) { Add-AppxPackage -Path $uiXamlPath -ErrorAction SilentlyContinue; $installedDeps += $uiXamlPath }
+                } catch { }
+            }
+
+            # Descarga e instalacion del paquete DesktopAppInstaller (Winget)
             try {
                 $wingetUrl = "https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
                 $wingetPath = "$env:TEMP\winget.msixbundle"
@@ -1197,25 +1247,46 @@ $Actions = @{
                 $dOk = Invoke-SafeDownload -Uri $wingetUrl -OutFile $wingetPath -Headers $headers
                 if (-not $dOk) { throw "Fallo la descarga de DesktopAppInstaller" }
                 
-                Add-AppxPackage -Path $wingetPath -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop
+                if ($installedDeps.Count -gt 0) {
+                    Add-AppxPackage -Path $wingetPath -DependencyPath $installedDeps -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop
+                } else {
+                    Add-AppxPackage -Path $wingetPath -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop
+                }
                 Write-Centered "[OK] Winget Instalado/Actualizado correctamente." "Green"
                 Write-AuditLog "cmd_rep_win10_update" "OK" "Winget Actualizado"
             } catch {
                 Write-Centered "[WARN] Add-AppxPackage directo fallo: $($_.Exception.Message)" "Yellow"
-                Write-Centered "Intentando instalacion asistida/fallback para Windows 10..." "White"
+                
+                # Comprobacion estricta de existencia de Microsoft Store para evitar modal del sistema
+                $hasStore = $false
                 try {
-                    Start-Process "ms-windows-store://pdp/?productid=9NBLGGH4NNS1" -ErrorAction SilentlyContinue
-                    Write-Centered "[INFO] Abriendo Microsoft Store para actualizar App Installer." "Cyan"
+                    if (Test-Path "HKCR:\ms-windows-store") { $hasStore = $true }
                 } catch { }
+
+                if ($hasStore) {
+                    Write-Centered "Intentando instalacion asistida mediante Microsoft Store..." "White"
+                    try {
+                        Start-Process "ms-windows-store://pdp/?productid=9NBLGGH4NNS1" -ErrorAction SilentlyContinue
+                        Write-Centered "[INFO] Abriendo Microsoft Store para actualizar App Installer." "Cyan"
+                    } catch { }
+                } else {
+                    Write-Centered "[INFO] Microsoft Store no esta disponible o registrado en esta edicion de Windows." "Yellow"
+                    Write-Centered "Se omitio la apertura de Store para evitar carteles de error del sistema." "Gray"
+                }
                 Write-AuditLog "cmd_rep_win10_update" "WARN" "Winget Fallback"
             }
 
-            Write-Centered "`n2/2 Descargando e Instalando PowerShell Core (pwsh)..." "Cyan"
+            Write-Centered "`n2/2 Descargando e Instalando PowerShell Core 7 (pwsh)..." "Cyan"
+            $pwshInstalledSuccessfully = $false
+            $pwshBinFound = ""
+
             try {
+                $msiPattern = if ($arch -eq "arm64") { "PowerShell-*-win-arm64.msi" } elseif ($arch -eq "x86") { "PowerShell-*-win-x86.msi" } else { "PowerShell-*-win-x64.msi" }
                 $pwshMsiUrl = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/PowerShell-7.4.6-win-x64.msi"
+                
                 try {
                     $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -Headers $headers -UseBasicParsing -ErrorAction Stop
-                    $asset = $releaseInfo.assets | Where-Object { $_.name -like "PowerShell-*-win-x64.msi" } | Select-Object -First 1
+                    $asset = $releaseInfo.assets | Where-Object { $_.name -like $msiPattern } | Select-Object -First 1
                     if ($asset) { $pwshMsiUrl = $asset.browser_download_url }
                 } catch { }
 
@@ -1230,23 +1301,24 @@ $Actions = @{
                 }
 
                 if ($downloadSuccess -and (Test-Path $pwshPath)) {
-                    Write-Centered "Ejecutando MSI de PowerShell Core..." "Yellow"
-                    $proc = Start-Process msiexec.exe -ArgumentList "/i `"$pwshPath`" /quiet /norestart" -Wait -PassThru -ErrorAction Stop
+                    Write-Centered "Ejecutando MSI de PowerShell Core 7..." "Yellow"
+                    $msiArgs = "/i `"$pwshPath`" /quiet /norestart ADD_PATH=1 REGISTER_MANIFEST=1 /log `"$env:TEMP\pwsh_install.log`""
+                    $proc = Start-Process msiexec.exe -ArgumentList $msiArgs -Wait -PassThru -ErrorAction Stop
                     if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
-                        Write-Centered "[OK] PowerShell Core Instalado/Actualizado exitosamente." "Green"
-                        Write-AuditLog "cmd_rep_win10_update" "OK" "PowerShell Core Actualizado"
+                        $pwshInstalledSuccessfully = $true
                     } else {
                         Write-Centered "[!] MSI finalizo con codigo: $($proc.ExitCode)" "Yellow"
                         Write-AuditLog "cmd_rep_win10_update" "WARN" "MSI ExitCode $($proc.ExitCode)"
                     }
                 }
             } catch {
+                Write-Centered "[WARN] Fallo el instalador MSI directo: $($_.Exception.Message)" "Yellow"
                 $wBin = Get-WingetPath
                 if ($wBin) {
                     Write-Centered "Intentando instalar PowerShell via Winget..." "Yellow"
                     try {
                         & $wBin install --id Microsoft.PowerShell --source winget --silent --accept-package-agreements --accept-source-agreements
-                        Write-Centered "[OK] PowerShell instalado via Winget." "Green"
+                        $pwshInstalledSuccessfully = $true
                         Write-AuditLog "cmd_rep_win10_update" "OK" "PowerShell via Winget"
                     } catch {
                         Write-Centered "[FALLO] Error actualizando PowerShell Core: $($_.Exception.Message)" "Red"
@@ -1255,6 +1327,54 @@ $Actions = @{
                 } else {
                     Write-Centered "[FALLO] Error actualizando PowerShell Core: $($_.Exception.Message)" "Red"
                     Write-AuditLog "cmd_rep_win10_update" "ERROR" $_.Exception.Message
+                }
+            }
+
+            # Refrescar PATH de entorno en el proceso activo
+            try {
+                $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+                $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+                $env:Path = "$machinePath;$userPath"
+            } catch { }
+
+            # Localizar el ejecutable pwsh.exe instalado
+            $defaultPwshPath = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
+            if (Test-Path $defaultPwshPath) {
+                $pwshBinFound = $defaultPwshPath
+            } else {
+                $cmdPwsh = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
+                if ($cmdPwsh) { $pwshBinFound = $cmdPwsh.Source }
+            }
+
+            if ($pwshBinFound -or $pwshInstalledSuccessfully) {
+                $verString = ""
+                if ($pwshBinFound) {
+                    try { $verString = (& $pwshBinFound -v 2>$null).Trim() } catch { }
+                }
+                if ([string]::IsNullOrWhiteSpace($verString)) { $verString = "Core 7" }
+
+                Write-Centered "[OK] PowerShell $verString instalado/actualizado correctamente." "Green"
+                if ($pwshBinFound) { Write-Centered "Ubicacion: $pwshBinFound" "Cyan" }
+                Write-Centered "[INFO] Nota: Windows PowerShell 5.1 (powershell.exe) se mantiene intacto" "White"
+                Write-Centered "por diseño de Microsoft para preservar compatibilidad de Windows." "White"
+                Write-AuditLog "cmd_rep_win10_update" "OK" "PowerShell $verString"
+
+                Write-Host "`n"; Write-Host (" " * 24) "+ Deseas relanzar la Toolbox en PowerShell 7 ahora? (S/N): " -ForegroundColor Yellow -NoNewline
+                $ansR = Read-SingleKey
+                Write-Host $ansR -ForegroundColor Cyan
+                if ($ansR -eq 'S' -or $ansR -eq 'Y') {
+                    $targetPwsh = if ($pwshBinFound) { $pwshBinFound } else { "pwsh.exe" }
+                    $scriptP = $MyInvocation.MyCommand.Path
+                    if ([string]::IsNullOrWhiteSpace($scriptP)) { $scriptP = $PSCommandPath }
+                    if (-not [string]::IsNullOrWhiteSpace($scriptP) -and (Test-Path $scriptP)) {
+                        Start-Process $targetPwsh -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptP`""
+                        [Console]::Clear()
+                        exit
+                    } else {
+                        Start-Process $targetPwsh -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"iex (irm https://raw.githubusercontent.com/xvacorx/BATman/main/Toolbox/Toolbox.ps1)`""
+                        [Console]::Clear()
+                        exit
+                    }
                 }
             }
         }
