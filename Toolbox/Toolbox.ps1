@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.2.0
+# TOOLBOX TECNICO PRO - v3.3.0
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -56,7 +56,10 @@ if ($Host.Name -eq "ConsoleHost") {
         $Size = $Raw.WindowSize; $Size.Width = [math]::Min(110, $Raw.MaxWindowSize.Width); $Size.Height = [math]::Min(38, $Raw.MaxWindowSize.Height); $Raw.WindowSize = $Size
     } catch { }
 }
-[Console]::BackgroundColor = "Black"; [Console]::Clear(); [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::BackgroundColor = "Black"; [Console]::Clear()
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- 3. FUNCIONES DE APOYO Y GLOBALES ---
 $logPath = "C:\Windows\Logs\Toolbox_Auditoria.log"
@@ -330,25 +333,73 @@ $Actions = @{
     "cmd_diag_bsod" = {
         try {
             Write-Centered "Consultando eventos recientes de pantallazos azules (BugCheck / Kernel-Power)..." "Cyan"
-            $events = Get-WinEvent -FilterHashtable @{LogName='System'; Id=1001,41} -MaxEvents 5 -ErrorAction SilentlyContinue
+            Write-Host " "
+            $events = Get-WinEvent -FilterHashtable @{LogName='System'; Id=1001,41} -MaxEvents 6 -ErrorAction SilentlyContinue
             if ($events) {
                 foreach ($evt in $events) {
-                    Write-Centered "[$($evt.TimeCreated)] ID: $($evt.Id) - $($evt.ProviderName)" "Yellow"
-                    $msgSnippet = if ($evt.Message) { $evt.Message.Substring(0, [math]::Min(120, $evt.Message.Length)) } else { "Sin detalles" }
-                    Write-Centered "$msgSnippet" "White"
-                    Write-Host "`n"
+                    $time = $evt.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss')
+                    if ($evt.Id -eq 1001) {
+                        Write-Centered "[$time] CRITICAL STOP (BugCheck Event 1001)" "Red"
+                        if ($evt.Message) {
+                            $lines = $evt.Message -split "`r?`n"
+                            foreach ($l in $lines) {
+                                if ($l -like "*0x*" -or $l -like "*comprobación*" -or $l -like "*bugcheck*" -or $l -like "*volcado*" -or $l -like "*dump*") {
+                                    Write-Centered "  $($l.Trim())" "Yellow"
+                                }
+                            }
+                        }
+                    } elseif ($evt.Id -eq 41) {
+                        Write-Centered "[$time] REINICIO INESPERADO / CORTE DE ENERGIA (Kernel-Power Event 41)" "Yellow"
+                    }
+                    Write-Host " "
                 }
-            } else { Write-Centered "[OK] No se registraron eventos recientes de BSOD o reinicios inesperados." "Green" }
+            } else {
+                Write-Centered "[OK] No se registraron eventos recientes de BSOD o reinicios inesperados." "Green"
+            }
+            $dumpFiles = Get-ChildItem "C:\Windows\Minidump\*.dmp" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 3
+            if ($dumpFiles) {
+                Write-Centered "--- Archivos Minidump encontrados en C:\Windows\Minidump ---" "Cyan"
+                foreach ($df in $dumpFiles) {
+                    Write-Centered "  $($df.Name) ($([math]::Round($df.Length / 1KB, 1)) KB) - $($df.LastWriteTime)" "White"
+                }
+            }
             Write-AuditLog "cmd_diag_bsod" "OK"
-        } catch { Write-Centered "[!] Error consultando registro de eventos BSOD." "Red" }
+        } catch {
+            Write-Centered "[!] Error consultando registro de eventos BSOD: $($_.Exception.Message)" "Red"
+            Write-AuditLog "cmd_diag_bsod" "ERROR" $_.Exception.Message
+        }
     }
     "cmd_diag_disk" = {
+        Write-Centered "--- SALUD Y TIPO DE DISCOS ---" "Cyan"
+        Write-Host " "
+        $foundPhysical = $false
         if (Get-Command Get-PhysicalDisk -ErrorAction SilentlyContinue) {
-            Get-PhysicalDisk | Select-Object MediaType, Model, HealthStatus | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Centered $_.Trim() "White" }
-            Write-AuditLog "cmd_diag_disk" "OK"
-        } else {
-            Write-Centered "Get-PhysicalDisk no disponible en este sistema." "Yellow"
+            try {
+                $pdisks = @(Get-PhysicalDisk -ErrorAction Stop)
+                if ($pdisks.Count -gt 0) {
+                    $foundPhysical = $true
+                    $pdisks | Select-Object DeviceId, FriendlyName, MediaType, HealthStatus, OperationalStatus, @{N="Size(GB)";E={[math]::Round($_.Size/1GB,1)}} | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Centered $_.Trim() "White" }
+                }
+            } catch { }
         }
+        if (-not $foundPhysical) {
+            $drives = Get-WmiCim "Win32_DiskDrive"
+            foreach ($d in $drives) {
+                $sz = [math]::Round($d.Size / 1GB, 1)
+                Write-Centered "Disco $($d.Index): $($d.Model) ($sz GB) - Status: $($d.Status) [Bus: $($d.InterfaceType)]" "White"
+            }
+        }
+        Write-Host " "
+        Write-Centered "--- VOLUMENES LOGICOS ---" "Cyan"
+        $vols = Get-WmiCim "Win32_LogicalDisk" -Filter "DriveType=3"
+        foreach ($v in $vols) {
+            $free = [math]::Round($v.FreeSpace / 1GB, 1)
+            $tot = [math]::Round($v.Size / 1GB, 1)
+            $pct = if ($tot -gt 0) { [math]::Round(($free / $tot) * 100, 1) } else { 0 }
+            $col = if ($pct -lt 10) { "Red" } elseif ($pct -lt 20) { "Yellow" } else { "Green" }
+            Write-Centered "Unidad $($v.DeviceID) ($($v.VolumeName)): $free GB libres de $tot GB ($pct% libre)" $col
+        }
+        Write-AuditLog "cmd_diag_disk" "OK"
     }
     "cmd_diag_batt" = {
         $batt = Get-WmiCim "Win32_Battery" | Select-Object -First 1
@@ -370,11 +421,119 @@ $Actions = @{
     }
     "cmd_diag_inv" = {
         $invPath = "$PublicDesktop\Inventario_$env:COMPUTERNAME.txt"
-        "Inventario Hardware y Sistema - $env:COMPUTERNAME" | Out-File $invPath -Encoding UTF8
-        "Fecha: $(Get-Date)" | Out-File $invPath -Encoding UTF8 -Append
-        Get-WmiCim "Win32_ComputerSystem" | Out-String | Out-File $invPath -Encoding UTF8 -Append
-        Write-Centered "[OK] Inventario exportado a $invPath" "Green"
+        $lines = @()
+        $lines += "============================================================"
+        $lines += "   INVENTARIO FORENSE DE SISTEMA Y HARDWARE"
+        $lines += "============================================================"
+        $lines += "Equipo: $env:COMPUTERNAME | Usuario: $env:USERNAME"
+        $lines += "Fecha:  $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))"
+        $lines += ""
+
+        # OS
+        $os = Get-WmiCim "Win32_OperatingSystem" | Select-Object -First 1
+        $lines += "[SISTEMA OPERATIVO]"
+        $lines += "OS:          $($os.Caption) ($($os.OSArchitecture))"
+        $lines += "Version:     $($os.Version) (Build $($os.BuildNumber))"
+        $lines += "Instalacion: $($os.InstallDate)"
+        $lines += ""
+
+        # Motherboard & BIOS
+        $bb = Get-WmiCim "Win32_BaseBoard" | Select-Object -First 1
+        $bios = Get-WmiCim "Win32_BIOS" | Select-Object -First 1
+        $lines += "[MOTHERBOARD & BIOS]"
+        $lines += "Motherboard: $($bb.Manufacturer) $($bb.Product)"
+        $lines += "BIOS Serial: $($bios.SerialNumber)"
+        $lines += "BIOS Ver:    $($bios.SMBIOSBIOSVersion) ($($bios.ReleaseDate))"
+        $lines += ""
+
+        # CPU
+        $cpu = Get-WmiCim "Win32_Processor" | Select-Object -First 1
+        $lines += "[PROCESADOR]"
+        $lines += "CPU:         $($cpu.Name.Trim())"
+        $lines += "Nucleos:     $($cpu.NumberOfCores) Cores / $($cpu.NumberOfLogicalProcessors) Threads"
+        $lines += ""
+
+        # RAM
+        $ramSticks = @(Get-WmiCim "Win32_PhysicalMemory")
+        $totalRamBytes = ($ramSticks | Measure-Object -Property Capacity -Sum).Sum
+        $totalRamGB = if ($totalRamBytes) { [math]::Round($totalRamBytes / 1GB, 2) } else { "?" }
+        $lines += "[MEMORIA RAM]"
+        $lines += "Total:       $totalRamGB GB"
+        foreach ($stick in $ramSticks) {
+            $lines += "  - Slot $($stick.DeviceLocator): $([math]::Round($stick.Capacity / 1GB, 1)) GB $($stick.Manufacturer) @ $($stick.Speed) MHz"
+        }
+        $lines += ""
+
+        # Disks
+        $lines += "[ALMACENAMIENTO]"
+        $disks = @(Get-WmiCim "Win32_DiskDrive")
+        foreach ($d in $disks) {
+            $dSize = [math]::Round($d.Size / 1GB, 1)
+            $lines += "  - $($d.Model) ($dSize GB) [Bus: $($d.InterfaceType)]"
+        }
+        $vols = @(Get-WmiCim "Win32_LogicalDisk" -Filter "DriveType=3")
+        foreach ($v in $vols) {
+            $lines += "    Volumen $($v.DeviceID) $([math]::Round($v.FreeSpace / 1GB, 1)) GB libres de $([math]::Round($v.Size / 1GB, 1)) GB ($($v.FileSystem))"
+        }
+        $lines += ""
+
+        # GPU
+        $lines += "[GRAFICOS (GPU)]"
+        $gpus = @(Get-WmiCim "Win32_VideoController")
+        foreach ($g in $gpus) {
+            $lines += "  - $($g.Name) (Driver: $($g.DriverVersion))"
+        }
+        $lines += ""
+
+        # Network
+        $lines += "[RED Y ADAPTADORES]"
+        $nics = @(Get-WmiCim "Win32_NetworkAdapterConfiguration" -Filter "IPEnabled=True")
+        foreach ($n in $nics) {
+            $ipStr = ($n.IPAddress | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }) -join ', '
+            $lines += "  - $($n.Description)"
+            $lines += "    IP: $ipStr | MAC: $($n.MACAddress) | Gateway: $($n.DefaultIPGateway -join ', ')"
+        }
+
+        $lines | Out-File -FilePath $invPath -Encoding UTF8 -Force
+        Write-Centered "[OK] Inventario forense exportado a:" "Green"
+        Write-Centered "$invPath" "Cyan"
         Write-AuditLog "cmd_diag_inv" "OK"
+    }
+    "cmd_diag_bitlocker" = {
+        Write-Centered "=== AUDITORIA Y ESTADO DE BITLOCKER ===" "Cyan"
+        Write-Host " "
+        try {
+            $blVols = Get-BitLockerVolume -ErrorAction Stop
+            foreach ($bv in $blVols) {
+                $mId = $bv.MountPoint
+                $prot = if ($bv.ProtectionStatus -eq "On") { "PROTEGIDO (ON)" } else { "DESPROTEGIDO (OFF)" }
+                $pCol = if ($bv.ProtectionStatus -eq "On") { "Green" } else { "Yellow" }
+                $enc = $bv.VolumeStatus
+                Write-Centered "Volumen $mId -> Estado: $enc | Proteccion: $prot | Metodo: $($bv.EncryptionMethod)" $pCol
+                
+                if ($bv.KeyProtector) {
+                    foreach ($kp in $bv.KeyProtector) {
+                        if ($kp.KeyProtectorType -eq "RecoveryPassword") {
+                            Write-Centered "   [Key Protector] ID: $($kp.KeyProtectorId)" "Gray"
+                            Write-Centered "   -> Clave de Recuperacion: $($kp.RecoveryPassword)" "Yellow"
+                        } else {
+                            Write-Centered "   [Key Protector] Tipo: $($kp.KeyProtectorType)" "Gray"
+                        }
+                    }
+                }
+                Write-Host " "
+            }
+            Write-AuditLog "cmd_diag_bitlocker" "OK"
+        } catch {
+            try {
+                $bde = manage-bde -status | Out-String
+                $bde -split "`r?`n" | ForEach-Object { if ($_.Trim()) { Write-Centered $_.Trim() "White" } }
+                Write-AuditLog "cmd_diag_bitlocker" "OK" "manage-bde"
+            } catch {
+                Write-Centered "[!] BitLocker no esta disponible o no esta soportado en esta edicion de Windows." "Yellow"
+                Write-AuditLog "cmd_diag_bitlocker" "NOT_AVAILABLE"
+            }
+        }
     }
     "cmd_diag_logs" = {
         if (Test-Path $logPath) {
@@ -399,16 +558,26 @@ $Actions = @{
         }
     }
     "cmd_rep_restore" = {
+        try { Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" -Name "SystemRestorePointCreationFrequency" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue } catch { }
         Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
         Checkpoint-Computer -Description "Toolbox_Manual" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
-        Write-Centered "[OK] Punto de restauracion creado." "Green"
+        Write-Centered "[OK] Punto de restauracion creado exitosamente." "Green"
         Write-AuditLog "cmd_rep_restore" "OK"
     }
     "cmd_rep_icons" = {
+        Write-Centered "Reconstruyendo cache de iconos y miniaturas..." "Yellow"
         Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-        Remove-Item "$env:localappdata\IconCache.db" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 500
+        $iconPaths = @(
+            "$env:localappdata\IconCache.db",
+            "$env:localappdata\Microsoft\Windows\Explorer\iconcache*.db",
+            "$env:localappdata\Microsoft\Windows\Explorer\thumbcache*.db"
+        )
+        foreach ($p in $iconPaths) {
+            Remove-Item -Path $p -Force -ErrorAction SilentlyContinue
+        }
         Start-Process explorer
-        Write-Centered "[OK] Cache de iconos reconstruida." "Green"
+        Write-Centered "[OK] Cache de iconos y miniaturas reconstruida correctamente." "Green"
         Write-AuditLog "cmd_rep_icons" "OK"
     }
     "cmd_rep_time" = {
@@ -419,8 +588,8 @@ $Actions = @{
     }
     "cmd_rep_wu" = {
         Write-Centered "=== REINICIO COMPLETO DE WINDOWS UPDATE ===" "Yellow"
-        Write-Centered "   [1/4] Deteniendo servicios (wuauserv, cryptSvc, bits, dosvc)..." "Cyan"
-        Stop-Service wuauserv, cryptSvc, bits, dosvc -Force -ErrorAction SilentlyContinue
+        Write-Centered "   [1/4] Deteniendo servicios (wuauserv, cryptSvc, bits, dosvc, UsoSvc, WaaSMedicSvc)..." "Cyan"
+        Stop-Service wuauserv, cryptSvc, bits, dosvc, UsoSvc, WaaSMedicSvc -Force -ErrorAction SilentlyContinue
 
         Write-Centered "   [2/4] Limpiando carpetas SoftwareDistribution y Catroot2..." "Cyan"
         $sdPath = "$env:windir\SoftwareDistribution"
@@ -484,6 +653,74 @@ $Actions = @{
         if ($IsWindows) { ipconfig | findstr "IPv4" | ForEach-Object { Write-Centered $_.Trim() "White" } }
         else { ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | ForEach-Object { Write-Centered $_ "White" } }
         Write-AuditLog "cmd_net_ip" "OK"
+    }
+    "cmd_net_dns_switch" = {
+        $title = if ($global:lang -eq 'es') { "CONMUTADOR RAPIDO DE DNS" } else { "QUICK DNS SWITCHER" }
+        Write-Centered "=== $title ===" "Cyan"
+        Write-Host " "
+
+        $adapters = @(Get-NetAdapter | Where-Object { $_.Status -eq 'Up' })
+        if ($adapters.Count -eq 0) {
+            Write-Centered "[!] No se detectaron adaptadores de red activos." "Red"
+            Write-AuditLog "cmd_net_dns_switch" "ERROR" "No active adapter"
+            return
+        }
+
+        $activeNic = $adapters[0]
+        Write-Centered "Adaptador activo: $($activeNic.Name) ($($activeNic.InterfaceDescription))" "Yellow"
+        Write-Host " "
+        
+        if ($global:lang -eq 'es') {
+            Write-Centered "1. Cloudflare DNS (1.1.1.1 / 1.0.0.1) - Baja Latencia y Privacidad" "White"
+            Write-Centered "2. Google DNS (8.8.8.8 / 8.8.4.4) - Universal y Confiable" "White"
+            Write-Centered "3. Quad9 DNS (9.9.9.9 / 149.112.112.112) - Bloqueo de Malware" "White"
+            Write-Centered "4. Restaurar a Automatico (DHCP del Router)" "White"
+            Write-Centered "0. Cancelar" "Gray"
+        } else {
+            Write-Centered "1. Cloudflare DNS (1.1.1.1 / 1.0.0.1) - Low Latency & Privacy" "White"
+            Write-Centered "2. Google DNS (8.8.8.8 / 8.8.4.4) - Universal & Reliable" "White"
+            Write-Centered "3. Quad9 DNS (9.9.9.9 / 149.112.112.112) - Malware Blocking" "White"
+            Write-Centered "4. Restore to Automatic (Router DHCP)" "White"
+            Write-Centered "0. Cancel" "Gray"
+        }
+
+        Write-Host "`n"; Write-Host (" " * 30) "+ Opcion: " -ForegroundColor Gray -NoNewline
+        $ans = Read-SingleKey
+        Write-Host $ans -ForegroundColor Cyan
+
+        $dnsServers = @()
+        $dnsLabel = ""
+
+        if ($ans -eq '1') {
+            $dnsServers = @("1.1.1.1", "1.0.0.1")
+            $dnsLabel = "Cloudflare (1.1.1.1 / 1.0.0.1)"
+        } elseif ($ans -eq '2') {
+            $dnsServers = @("8.8.8.8", "8.8.4.4")
+            $dnsLabel = "Google (8.8.8.8 / 8.8.4.4)"
+        } elseif ($ans -eq '3') {
+            $dnsServers = @("9.9.9.9", "149.112.112.112")
+            $dnsLabel = "Quad9 (9.9.9.9 / 149.112.112.112)"
+        } elseif ($ans -eq '4') {
+            $dnsLabel = "DHCP (Automatico)"
+        } else {
+            Write-Centered "`nOperacion cancelada." "Gray"
+            return
+        }
+
+        try {
+            if ($ans -eq '4') {
+                Set-DnsClientServerAddress -InterfaceAlias $activeNic.Name -ResetServerAddresses -ErrorAction Stop
+            } else {
+                Set-DnsClientServerAddress -InterfaceAlias $activeNic.Name -ServerAddresses $dnsServers -ErrorAction Stop
+            }
+            ipconfig /flushdns | Out-Null
+            Write-Centered "`n[OK] Servidores DNS configurados a: $dnsLabel" "Green"
+            Write-Centered "[OK] Cache DNS purgada con exito." "Green"
+            Write-AuditLog "cmd_net_dns_switch" "OK" "$($activeNic.Name) -> $dnsLabel"
+        } catch {
+            Write-Centered "`n[!] Error aplicando configuracion DNS: $($_.Exception.Message)" "Red"
+            Write-AuditLog "cmd_net_dns_switch" "ERROR" $_.Exception.Message
+        }
     }
     "cmd_net_gpupdate" = {
         Write-Centered "Actualizando Directivas de Grupo (GPO)..." "Yellow"
@@ -769,7 +1006,9 @@ $Actions = @{
             "*cortana*", "*3dviewer*", "*mixedreality*", "*zunevideo*", "*zunemusic*",
             "*yourphone*", "*clipchamp*", "*news*", "*weather*", "*feedbackhub*",
             "*microsoftstickynotes*", "*todos*", "*getstarted*", "*messaging*",
-            "*powerautomatedesktop*", "*gamingapp*", "*windowsalarms*", "*windowsmaps*"
+            "*powerautomatedesktop*", "*gamingapp*", "*windowsalarms*", "*windowsmaps*",
+            "*tiktok*", "*instagram*", "*disney*", "*primevideo*", "*facebook*",
+            "*linkedin*", "*netflix*", "*candycrush*", "*microsoftfamily*"
         )
         Write-Host " "
         if ($global:lang -eq 'es') {
@@ -892,6 +1131,66 @@ $Actions = @{
             Write-Centered "`n[OK] Nag screens, welcome setup & system suggestions successfully disabled." "Green"
         }
         Write-AuditLog "cmd_opt_disablesetupnags" "OK" "Directivas aplicadas: $applied"
+    }
+    "cmd_opt_classic_context" = {
+        $title = if ($global:lang -eq 'es') { "MENU CONTEXTUAL CLASICO (WINDOWS 11)" } else { "CLASSIC CONTEXT MENU (WINDOWS 11)" }
+        Write-Centered "=== $title ===" "Yellow"
+        Write-Host " "
+        
+        $regPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+        $isClassicActive = Test-Path $regPath
+
+        if ($global:lang -eq 'es') {
+            $st = if ($isClassicActive) { "ACTIVO (Menu Clasico)" } else { "INACTIVO (Menu Moderno Win 11)" }
+            Write-Centered "Estado actual: $st" "Cyan"
+            Write-Host " "
+            Write-Centered "1. Activar Menu Clasico (Click derecho directo)" "White"
+            Write-Centered "2. Restaurar Menu Moderno (Windows 11 por defecto)" "White"
+            Write-Centered "0. Cancelar" "Gray"
+        } else {
+            $st = if ($isClassicActive) { "ACTIVE (Classic Menu)" } else { "INACTIVE (Modern Win 11 Menu)" }
+            Write-Centered "Current state: $st" "Cyan"
+            Write-Host " "
+            Write-Centered "1. Enable Classic Menu (Direct right-click)" "White"
+            Write-Centered "2. Restore Modern Menu (Windows 11 default)" "White"
+            Write-Centered "0. Cancel" "Gray"
+        }
+
+        Write-Host "`n"; Write-Host (" " * 30) "+ Opcion: " -ForegroundColor Gray -NoNewline
+        $ans = Read-SingleKey
+        Write-Host $ans -ForegroundColor Cyan
+
+        if ($ans -eq '1') {
+            try {
+                if (-not (Test-Path $regPath)) {
+                    New-Item -Path $regPath -Force | Out-Null
+                }
+                Set-ItemProperty -Path $regPath -Name "(Default)" -Value "" -Force | Out-Null
+                Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+                Start-Process explorer
+                Write-Centered "`n[OK] Menu contextual clasico activado exitosamente." "Green"
+                Write-AuditLog "cmd_opt_classic_context" "OK" "Classic ON"
+            } catch {
+                Write-Centered "[!] Error aplicando cambios en el registro: $($_.Exception.Message)" "Red"
+                Write-AuditLog "cmd_opt_classic_context" "ERROR" $_.Exception.Message
+            }
+        } elseif ($ans -eq '2') {
+            try {
+                $parentClsid = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"
+                if (Test-Path $parentClsid) {
+                    Remove-Item -Path $parentClsid -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+                Start-Process explorer
+                Write-Centered "`n[OK] Menu moderno de Windows 11 restaurado exitosamente." "Green"
+                Write-AuditLog "cmd_opt_classic_context" "OK" "Modern Restored"
+            } catch {
+                Write-Centered "[!] Error restaurando menu moderno: $($_.Exception.Message)" "Red"
+                Write-AuditLog "cmd_opt_classic_context" "ERROR" $_.Exception.Message
+            }
+        } else {
+            Write-Centered "`nOperacion cancelada." "Gray"
+        }
     }
     "cmd_opt_cpl" = { Start-Process control; Write-AuditLog "cmd_opt_cpl" "OK" }
     "cmd_opt_dev" = { Start-Process devmgmt.msc; Write-AuditLog "cmd_opt_dev" "OK" }
@@ -1023,24 +1322,37 @@ $Actions = @{
     "cmd_user_admin_on" = { net user administrator /active:yes; Write-Centered "[OK] ADMIN ON." "Green"; Write-AuditLog "cmd_user_admin_on" "OK" }
     "cmd_user_admin_off" = { net user administrator /active:no; Write-Centered "[OK] ADMIN OFF." "White"; Write-AuditLog "cmd_user_admin_off" "OK" }
     "cmd_user_pass" = {
-        Get-LocalUser | Select-Object Name, Enabled | Format-Table -AutoSize | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }
-        $u = Read-Host "Usuario"
+        Get-LocalUser | Select-Object Name, Enabled, Description | Format-Table -AutoSize | Out-String | ForEach-Object { Write-Centered $_.Trim() "White" }
+        $u = Read-Host " Usuario a modificar"
         if ($u) {
-            $p = Read-Host "Nueva clave"
-            if ($p) {
+            $p1 = Read-Host " Nueva clave (oculta)" -AsSecureString
+            if ($p1) {
+                $p2 = Read-Host " Confirme la nueva clave (oculta)" -AsSecureString
+                $bstr1 = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1)
+                $bstr2 = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2)
+                $plain1 = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr1)
+                $plain2 = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr2)
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr1)
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr2)
+
+                if ($plain1 -ne $plain2) {
+                    Write-Centered "[!] Las contraseñas no coinciden. Operacion cancelada." "Red"
+                    Write-AuditLog "cmd_user_pass" "CANCELLED" "Mismatch"
+                    return
+                }
+
                 try {
-                    $secPass = ConvertTo-SecureString $p -AsPlainText -Force
-                    Set-LocalUser -Name $u -Password $secPass -ErrorAction Stop
-                    Write-Centered "[OK] Contraseña para $u actualizada." "Green"
+                    Set-LocalUser -Name $u -Password $p1 -ErrorAction Stop
+                    Write-Centered "[OK] Contraseña para '$u' actualizada exitosamente." "Green"
                     Write-AuditLog "cmd_user_pass" "OK" "Usuario: $u"
                 } catch {
                     try {
-                        net user "$u" "$p" | Out-Null
-                        Write-Centered "[OK] Contraseña para $u actualizada (net user)." "Green"
+                        net user "$u" "$plain1" | Out-Null
+                        Write-Centered "[OK] Contraseña para '$u' actualizada (via net user)." "Green"
                         Write-AuditLog "cmd_user_pass" "OK" "Usuario: $u (net user)"
                     } catch {
-                        Write-Centered "[!] Error al cambiar la contraseña." "Red"
-                        Write-AuditLog "cmd_user_pass" "ERROR" "Usuario: $u"
+                        Write-Centered "[!] Error al cambiar la contraseña: $($_.Exception.Message)" "Red"
+                        Write-AuditLog "cmd_user_pass" "ERROR" "Usuario: $u | $($_.Exception.Message)"
                     }
                 }
             }
@@ -1049,16 +1361,32 @@ $Actions = @{
 
     # MODO AUTOMATICO (8 PASOS - v3.2.0)
     "cmd_auto_run" = {
-        Write-Centered ">> MANTENIMIENTO AUTOMATICO EN PROGRESO <<" "Green"; Write-Host "`n"
-        Write-Centered "[ 1/8 ] Punto de Restauracion..." "Yellow"; Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue; Checkpoint-Computer -Description "Toolbox_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
-        Write-Centered "[ 2/8 ] Limpieza de Basura..." "Yellow"; &$Accion_Limpieza
-        Write-Centered "[ 3/8 ] Reparacion de SO (SFC/DISM)..." "Yellow"; &$Accion_Reparacion
-        Write-Centered "[ 4/8 ] Escaneo de Disco en Vivo (CHKDSK)..." "Yellow"; try { cmd.exe /c "chkdsk C: /scan" } catch { Write-Centered "Error ejecutando CHKDSK en vivo" "Red" }
-        Write-Centered "[ 5/8 ] Limpieza Profunda WinSxS..." "Yellow"; dism /online /cleanup-image /StartComponentCleanup
-        Write-Centered "[ 6/8 ] Purgando Visor de Eventos..." "Yellow"; wevtutil el | ForEach-Object { wevtutil cl "$_" 2>$null }
-        Write-Centered "[ 7/8 ] Forzando Politicas (GPO)..." "Yellow"; gpupdate /force | Out-Null
-        Write-Centered "[ 8/8 ] Sincronizando Hora..." "Yellow"; Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-Null
-        Play-FinishBeep; Write-Centered "MANTENIMIENTO FINALIZADO" "Green"
+        Write-Centered ">> MANTENIMIENTO AUTOMATICO EN PROGRESO (7 PASOS) <<" "Green"; Write-Host "`n"
+        Write-Centered "[ 1/7 ] Punto de Restauracion..." "Yellow"
+        try { Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" -Name "SystemRestorePointCreationFrequency" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue } catch { }
+        Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
+        Checkpoint-Computer -Description "Toolbox_Auto" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
+
+        Write-Centered "[ 2/7 ] Limpieza de Basura y Temporales..." "Yellow"
+        &$Accion_Limpieza
+
+        Write-Centered "[ 3/7 ] Reparacion de SO (SFC/DISM)..." "Yellow"
+        &$Accion_Reparacion
+
+        Write-Centered "[ 4/7 ] Escaneo de Disco en Vivo (CHKDSK)..." "Yellow"
+        try { cmd.exe /c "chkdsk C: /scan" } catch { Write-Centered "Error ejecutando CHKDSK en vivo" "Red" }
+
+        Write-Centered "[ 5/7 ] Limpieza Profunda WinSxS..." "Yellow"
+        dism /online /cleanup-image /StartComponentCleanup
+
+        Write-Centered "[ 6/7 ] Forzando Politicas de Grupo (GPO)..." "Yellow"
+        gpupdate /force | Out-Null
+
+        Write-Centered "[ 7/7 ] Sincronizando Hora..." "Yellow"
+        Restart-Service w32time -ErrorAction SilentlyContinue; w32tm /resync | Out-Null
+
+        Play-FinishBeep
+        Write-Centered "`n=== MANTENIMIENTO FINALIZADO CON EXITO ===" "Green"
         Write-AuditLog "cmd_auto_run" "OK"
     }
     "cmd_auto_run_exit" = { & $Actions["cmd_auto_run"]; [Console]::Clear(); exit }
@@ -1075,14 +1403,41 @@ $Actions = @{
         Write-Host "`n"
         Write-Centered "1. Activar | 2. Desactivar | 0. Volver" "White"
         $ans = Read-SingleKey
+        $pidFile = Join-Path $env:TEMP "toolbox_antisleep.pid"
+        $psCode = "[code]='[DllImport(\`"kernel32.dll\`")] public static extern uint SetThreadExecutionState(uint esFlags);'; [type]=Add-Type -MemberDefinition [code] -Name 'Win32' -Namespace 'System' -PassThru; while(`$true){ [type]::SetThreadExecutionState(0x80000003); Start-Sleep -Seconds 60 }"
+        $psCmdB64 = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($psCode))
+
         if ($ans -eq '1') {
-            $psCmdB64 = "JABjAG8AZABlACAAPQAgACcAWwBEAGwAbABJAG0AcABvAHIAdAAoACIAawBlAHIAbgBlAGwAMwAyAC4AZABsAGwAIgApAF0AIABwAHUAYgBsAGkAYwAgAHMAdABhAHQAaQBjACAAZQB4AHQAZQByAG4AIAB1AGkAbgB0ACAAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAdQBpAG4AdAAgAGUAcwBGAGwAYQBnAHMAKQA7ACcAOwAgACQAdAB5AHAAZQAgAD0AIABBAGQAZAAtAFQAeQBwAGUAIAAtAE0AZQBtAGIAZQByAEQAZQBmAGkAbgBpAHQAaQBvAG4AIAAkAGMAbwBkAGUAIAAtAE4AYQBtAGUAIAAnAFcAaQBuADMAMgAnACAALQBOAGEAbQBlAHMAcABhAGMAZQAgACcAUwB5AHMAdABlAG0AJwAgAC0AUABhAHMAcwBUAGgAcgB1ADsAIAB3AGgAaQBsAGUAIAAoACQAdAByAHUAZQApACAAewAgACQAdAB5AHAAZQA6ADoAUwBlAHQAVABoAHIAZQBhAGQARQB4AGUAYwB1AHQAaQBvAG4AUwB0AGEAdABlACgAMAB4ADgAMAAwADAAMAAwADAAMwApADsAIABTAHQAYQByAHQALQBTAGwAZQBlAHAAIAAtAFMAZQBjAG8AbgBkAHMAIAA6ADAAIAB9AA=="
-            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $psCmdB64
+            $p = Start-Process powershell.exe -WindowStyle Hidden -PassThru -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $psCmdB64
+            if ($p) {
+                $p.Id | Out-File -FilePath $pidFile -Encoding ascii -Force
+            }
             Write-Centered "[OK] Anti Sleep Activado (Bloqueando suspension de sistema y pantalla)." "Green"
-            Write-AuditLog "cmd_util_antisleep" "OK" "ON"
+            Write-AuditLog "cmd_util_antisleep" "OK" "ON (PID $($p.Id))"
         } elseif ($ans -eq '2') {
-            Get-WmiObject Win32_Process -Filter "Name='powershell.exe' AND CommandLine LIKE '%SetThreadExecutionState%'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-            Write-Centered "[OK] Anti Sleep Desactivado." "Green"
+            $stopped = $false
+            if (Test-Path $pidFile) {
+                $savedPid = Get-Content $pidFile -Raw -ErrorAction SilentlyContinue
+                if ($savedPid -match '^\d+$') {
+                    try {
+                        Stop-Process -Id ([int]$savedPid.Trim()) -Force -ErrorAction Stop
+                        $stopped = $true
+                    } catch { }
+                }
+                Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+            }
+            try {
+                Get-WmiObject Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*$psCmdB64*" -or $_.CommandLine -like "*SetThreadExecutionState*" } | ForEach-Object {
+                    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+                    $stopped = $true
+                }
+            } catch { }
+
+            if ($stopped) {
+                Write-Centered "[OK] Anti Sleep Desactivado." "Green"
+            } else {
+                Write-Centered "[INFO] No se encontro proceso de Anti Sleep activo." "Yellow"
+            }
             Write-AuditLog "cmd_util_antisleep" "OK" "OFF"
         }
     }
@@ -1425,6 +1780,41 @@ $Actions = @{
                 }
             }
         }
+    }
+    "cmd_rep_defender" = {
+        Write-Centered "=== REPARAR Y ACTUALIZAR WINDOWS DEFENDER ===" "Cyan"
+        Write-Host " "
+        $mpPath = "$env:ProgramFiles\Windows Defender\MpCmdRun.exe"
+        if (-not (Test-Path $mpPath)) {
+            $platformDir = "$env:ProgramData\Microsoft\Windows Defender\Platform"
+            $latestPlatform = Get-ChildItem $platformDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+            if ($latestPlatform) { $mpPath = Join-Path $latestPlatform.FullName "MpCmdRun.exe" }
+        }
+
+        Write-Centered "1/3 Purgando cache de firmas de seguridad..." "Yellow"
+        if (Test-Path $mpPath) {
+            & $mpPath -RemoveDefinitions -All | Out-Null
+        }
+
+        Write-Centered "2/3 Descargando y forzando actualizacion de inteligencia..." "Cyan"
+        if (Test-Path $mpPath) {
+            & $mpPath -SignatureUpdate | Out-Null
+        } else {
+            Update-MpSignature -ErrorAction SilentlyContinue
+        }
+
+        Write-Centered "3/3 Verificando estado del motor Defender..." "Yellow"
+        Start-Service WinDefend -ErrorAction SilentlyContinue
+
+        if (Get-Command Get-MpComputerStatus -ErrorAction SilentlyContinue) {
+            $status = Get-MpComputerStatus -ErrorAction SilentlyContinue
+            if ($status) {
+                Write-Centered "Version de Antivirus: $($status.AntivirusSignatureVersion) ($($status.AntivirusSignatureLastUpdated))" "White"
+                Write-Centered "Proteccion en tiempo real: $(if($status.RealTimeProtectionEnabled){'ACTIVA'}else{'INACTIVA'})" "Green"
+            }
+        }
+        Write-Centered "`n[OK] Windows Defender reparado y actualizado con exito." "Green"
+        Write-AuditLog "cmd_rep_defender" "OK"
     }
     "cmd_rep_win_pro" = {
         Write-Centered "=== FORZAR UPGRADE A WINDOWS PRO (OFFLINE) ===" "Yellow"

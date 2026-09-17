@@ -1,12 +1,12 @@
 {
     "config": {
-        "version": "3.2.0",
+        "version": "3.3.0",
         "default_lang": "es"
     },
     "diccionario": {
         "title": {
-            "es": "TOOLBOX TECNICO PRO - By Viktor - V3.2.0",
-            "en": "TECH TOOLBOX PRO - By Viktor - V3.2.0"
+            "es": "TOOLBOX TECNICO PRO - By Viktor - V3.3.0",
+            "en": "TECH TOOLBOX PRO - By Viktor - V3.3.0"
         },
         "legend": {
             "es": "[Blanco: Seguro/Info] | [Amarillo: Avanzado] | [Rojo: Borrado/Reset]",
@@ -215,6 +215,16 @@
                     ]
                 },
                 {
+                    "tecla": "8",
+                    "label_es": "Auditoria y Estado de BitLocker",
+                    "label_en": "BitLocker Audit & Status",
+                    "target": "cmd_diag_bitlocker",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
                     "tecla": "0",
                     "label_es": "Volver al Menu Principal",
                     "label_en": "Return to Main Menu",
@@ -292,6 +302,16 @@
                     ]
                 },
                 {
+                    "tecla": "9",
+                    "label_es": "Reparar y Actualizar Windows Defender",
+                    "label_en": "Repair & Update Windows Defender",
+                    "target": "cmd_rep_defender",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
                     "tecla": "0",
                     "label_es": "Volver al Menu Principal",
                     "label_en": "Return to Main Menu",
@@ -354,6 +374,16 @@
                     "label_en": "Force GPO (gpupdate)",
                     "target": "cmd_net_gpupdate",
                     "color": "White",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
+                    "tecla": "6",
+                    "label_es": "Conmutador Rapido de DNS (Cloudflare / Google / Quad9)",
+                    "label_en": "Quick DNS Switcher (Cloudflare / Google / Quad9)",
+                    "target": "cmd_net_dns_switch",
+                    "color": "Yellow",
                     "os": [
                         "Windows"
                     ]
@@ -588,6 +618,16 @@
                     ]
                 },
                 {
+                    "tecla": "C",
+                    "label_es": "Menu Contextual Clasico (Windows 11)",
+                    "label_en": "Classic Context Menu (Windows 11)",
+                    "target": "cmd_opt_classic_context",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
                     "tecla": "6",
                     "label_es": "Panel Control",
                     "label_en": "Control Panel",
@@ -762,16 +802,12 @@
                     "en": "5. Deep WinSxS Cleanup"
                 },
                 {
-                    "es": "6. Purgar Visor de Eventos",
-                    "en": "6. Purge Event Viewer"
+                    "es": "6. Forzar GPO",
+                    "en": "6. Force GPO"
                 },
                 {
-                    "es": "7. Forzar GPO",
-                    "en": "7. Force GPO"
-                },
-                {
-                    "es": "8. Sincronizacion de Hora",
-                    "en": "8. Time Synchronization"
+                    "es": "7. Sincronizacion de Hora",
+                    "en": "7. Time Synchronization"
                 }
             ],
             "opciones": [
