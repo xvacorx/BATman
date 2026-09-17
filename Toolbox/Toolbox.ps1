@@ -1,5 +1,5 @@
 # =========================================================
-# TOOLBOX TECNICO PRO - v3.3.0
+# TOOLBOX TECNICO PRO - v3.4.0
 # =========================================================
 
 # --- 1. PROTOCOLOS Y ELEVACION ---
@@ -228,7 +228,7 @@ if ($hasValidJsonPath) {
     try { $db = Get-Content -Raw -Path $jsonPath -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "[!] FATAL ERROR: El archivo menu.json local tiene errores." -ForegroundColor Red; Pause; exit }
 } else {
-    Write-Host "Cargando motor v3.2.0 desde la nube..." -ForegroundColor Cyan
+    Write-Host "Cargando motor v3.4.0 desde la nube..." -ForegroundColor Cyan
     try {
         $db = Invoke-RestMethod -Uri $jsonUrl -ErrorAction Stop
         if ($db.GetType().Name -eq "String") { $db = $db | ConvertFrom-Json }
@@ -741,6 +741,34 @@ $Actions = @{
         Write-Centered "[OK] RDP Deshabilitado." "Red"
         Write-AuditLog "cmd_net_rdp_off" "OK"
     }
+    "cmd_remoto_quickassist" = {
+        Write-Centered "Iniciando Asistencia Rapida de Windows (Quick Assist)..." "Yellow"
+        try {
+            Start-Process "quickassist.exe"
+            Write-Centered "[OK] Ventana de Asistencia Rapida iniciada." "Green"
+            Write-AuditLog "cmd_remoto_quickassist" "OK"
+        } catch {
+            try {
+                Start-Process "ms-quick-assist:"
+                Write-Centered "[OK] Protocolo de Asistencia Rapida invocado." "Green"
+                Write-AuditLog "cmd_remoto_quickassist" "OK" "URI"
+            } catch {
+                Write-Centered "[!] No se pudo abrir Asistencia Rapida: $($_.Exception.Message)" "Red"
+                Write-AuditLog "cmd_remoto_quickassist" "ERROR" $_.Exception.Message
+            }
+        }
+    }
+    "cmd_remoto_mstsc" = {
+        Write-Centered "Iniciando Cliente de Conexion a Escritorio Remoto (MSTSC)..." "Yellow"
+        try {
+            Start-Process "mstsc.exe"
+            Write-Centered "[OK] Cliente RDP iniciado." "Green"
+            Write-AuditLog "cmd_remoto_mstsc" "OK"
+        } catch {
+            Write-Centered "[!] No se pudo abrir mstsc.exe: $($_.Exception.Message)" "Red"
+            Write-AuditLog "cmd_remoto_mstsc" "ERROR" $_.Exception.Message
+        }
+    }
 
     # LIMPIEZA
     "cmd_clean_temp" = { &$Accion_Limpieza; Write-Centered "[OK] Limpieza de temporales completada." "Green"; Write-AuditLog "cmd_clean_temp" "OK" }
@@ -1192,10 +1220,22 @@ $Actions = @{
             Write-Centered "`nOperacion cancelada." "Gray"
         }
     }
-    "cmd_opt_cpl" = { Start-Process control; Write-AuditLog "cmd_opt_cpl" "OK" }
-    "cmd_opt_dev" = { Start-Process devmgmt.msc; Write-AuditLog "cmd_opt_dev" "OK" }
-    "cmd_opt_net" = { Start-Process ncpa.cpl; Write-AuditLog "cmd_opt_net" "OK" }
-    "cmd_opt_app" = { Start-Process appwiz.cpl; Write-AuditLog "cmd_opt_app" "OK" }
+    # CONSOLAS ADMINISTRATIVAS Y PANEL DE CONTROL
+    "cmd_cpl_control"  = { Start-Process "control.exe"; Write-AuditLog "cmd_cpl_control" "OK" }
+    "cmd_cpl_devmgmt"  = { Start-Process "devmgmt.msc"; Write-AuditLog "cmd_cpl_devmgmt" "OK" }
+    "cmd_cpl_ncpa"     = { Start-Process "ncpa.cpl"; Write-AuditLog "cmd_cpl_ncpa" "OK" }
+    "cmd_cpl_appwiz"   = { Start-Process "appwiz.cpl"; Write-AuditLog "cmd_cpl_appwiz" "OK" }
+    "cmd_cpl_diskmgmt" = { Start-Process "diskmgmt.msc"; Write-AuditLog "cmd_cpl_diskmgmt" "OK" }
+    "cmd_cpl_services" = { Start-Process "services.msc"; Write-AuditLog "cmd_cpl_services" "OK" }
+    "cmd_cpl_compmgmt" = { Start-Process "compmgmt.msc"; Write-AuditLog "cmd_cpl_compmgmt" "OK" }
+    "cmd_cpl_sysdm"    = { Start-Process "sysdm.cpl"; Write-AuditLog "cmd_cpl_sysdm" "OK" }
+    "cmd_cpl_eventvwr" = { Start-Process "eventvwr.msc"; Write-AuditLog "cmd_cpl_eventvwr" "OK" }
+
+    # Aliases retrocompatibles
+    "cmd_opt_cpl"      = { Start-Process "control.exe"; Write-AuditLog "cmd_opt_cpl" "OK" }
+    "cmd_opt_dev"      = { Start-Process "devmgmt.msc"; Write-AuditLog "cmd_opt_dev" "OK" }
+    "cmd_opt_net"      = { Start-Process "ncpa.cpl"; Write-AuditLog "cmd_opt_net" "OK" }
+    "cmd_opt_app"      = { Start-Process "appwiz.cpl"; Write-AuditLog "cmd_opt_app" "OK" }
     "cmd_opt_rename_hostname" = {
         $promptMsg = if ($global:lang -eq 'es') { " Nuevo Hostname (nombre del equipo)" } else { " New Hostname (computer name)" }
         $n = Read-Host $promptMsg
