@@ -846,6 +846,53 @@ $Actions = @{
         Write-Centered "[OK] Rendimiento visual optimizado (Requiere reiniciar o cerrar sesion)." "Green"
         Write-AuditLog "cmd_opt_visuals" "OK"
     }
+    "cmd_opt_disablesetupnags" = {
+        $title = if ($global:lang -eq 'es') { "DESACTIVAR PANTALLAS DE 'COMPLETAR CONFIGURACION' Y NAGS (WIN 10 / 11)" } else { "DISABLE 'FINISH SETTING UP PC' & NAG SCREENS (WIN 10 / 11)" }
+        Write-Centered "=== $title ===" "Yellow"
+        Write-Host " "
+
+        $regKeys = @(
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement"; Name = "ScoobeSystemSettingEnabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SubscribedContent-310093Enabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SubscribedContent-338388Enabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SubscribedContent-338389Enabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SubscribedContent-353694Enabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SubscribedContent-353696Enabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SubscribedContent-353698Enabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SystemPaneSuggestionsEnabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"; Name = "SoftLandingEnabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy"; Name = "TailoredExperiencesWithDiagnosticDataEnabled"; Value = 0; Type = "DWord" },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"; Name = "DisableWindowsConsumerFeatures"; Value = 1; Type = "DWord" },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"; Name = "DisableSoftLanding"; Value = 1; Type = "DWord" },
+            @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"; Name = "DisableCloudOptimizedContent"; Value = 1; Type = "DWord" }
+        )
+
+        $applied = 0
+        foreach ($k in $regKeys) {
+            try {
+                if (-not (Test-Path $k.Path)) {
+                    New-Item -Path $k.Path -ItemType Directory -Force -ErrorAction SilentlyContinue | Out-Null
+                }
+                Set-ItemProperty -Path $k.Path -Name $k.Name -Value $k.Value -Type $k.Type -Force -ErrorAction SilentlyContinue
+                $applied++
+            } catch { }
+        }
+
+        if ($global:lang -eq 'es') {
+            Write-Host "   [+] OOBE Diferido (SCOOBE / 'Vamos a terminar de configurar') -> Desactivado" -ForegroundColor Green
+            Write-Host "   [+] Experiencia de bienvenida y novedades tras actualizar -> Desactivada" -ForegroundColor Green
+            Write-Host "   [+] Consejos, sugerencias de Windows y experiencias personalizadas -> Desactivadas" -ForegroundColor Green
+            Write-Host "   [+] Directivas de CloudContent y Consumer Features -> Bloqueadas" -ForegroundColor Green
+            Write-Centered "`n[OK] Pantallas molestas de bienvenida y sugerencias desactivadas correctamente." "Green"
+        } else {
+            Write-Host "   [+] Second-Chance OOBE (SCOOBE / 'Let's finish setup') -> Disabled" -ForegroundColor Green
+            Write-Host "   [+] Windows Welcome Experience & Post-Update Nags -> Disabled" -ForegroundColor Green
+            Write-Host "   [+] Tips, tricks, system suggestions & tailored experiences -> Disabled" -ForegroundColor Green
+            Write-Host "   [+] CloudContent & Consumer Features policies -> Blocked" -ForegroundColor Green
+            Write-Centered "`n[OK] Nag screens, welcome setup & system suggestions successfully disabled." "Green"
+        }
+        Write-AuditLog "cmd_opt_disablesetupnags" "OK" "Directivas aplicadas: $applied"
+    }
     "cmd_opt_cpl" = { Start-Process control; Write-AuditLog "cmd_opt_cpl" "OK" }
     "cmd_opt_dev" = { Start-Process devmgmt.msc; Write-AuditLog "cmd_opt_dev" "OK" }
     "cmd_opt_net" = { Start-Process ncpa.cpl; Write-AuditLog "cmd_opt_net" "OK" }

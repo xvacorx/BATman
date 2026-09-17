@@ -578,6 +578,16 @@
                     ]
                 },
                 {
+                    "tecla": "N",
+                    "label_es": "Desactivar Pantallas 'Completar Configuracion' y Nags",
+                    "label_en": "Disable 'Finish Setting Up PC' & Nag Screens",
+                    "target": "cmd_opt_disablesetupnags",
+                    "color": "Yellow",
+                    "os": [
+                        "Windows"
+                    ]
+                },
+                {
                     "tecla": "6",
                     "label_es": "Panel Control",
                     "label_en": "Control Panel",
